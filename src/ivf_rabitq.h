@@ -1,3 +1,18 @@
+/*
+   Copyright 2026 Huawei Technologies Co., Ltd.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+ */
 // ==================================================================
 // IVFRN() involves pre-processing steps (e.g., packing the
 // quantization codes into a batch) in the index phase.
@@ -17,19 +32,41 @@
 
 template <uint32_t D, uint32_t B>
 class IVFRN{
-private:
 public:
+#ifdef __aarch64__
+    float low_dist_scale = 1.0;
+    struct Factor{
+            float sqr_x[4];
+            float error[4];
+            float factor_ppc[4];
+            float factor_ip[4];
+    };
+    Factor * fac;
+    Factor ** fac_start;
+    struct alignas(128) Factor_f16{
+        float16_t sqr_x[16];
+        float16_t error[16];
+        float16_t factor_ppc[16];
+        float16_t factor_ip[16];
+};
+
+    Factor_f16 * fac_f16;
+    Factor_f16 ** fac_f16_start;
+    float16_t * centroid_f16;
+    float16_t * data_f16;
+#else
     struct Factor{
         float sqr_x;
         float error;
         float factor_ppc;
         float factor_ip;
     };
-
     Factor * fac;
+#endif
+
     static constexpr float fac_norm = const_sqrt(1.0 * B);
     static constexpr float max_x1 = 1.9 / const_sqrt(1.0 * B-1.0);
-    
+
     static Space<D,B> space;
 
     uint32_t N;                       // the number of data vectors 
@@ -45,18 +82,42 @@ public:
     uint64_t * binary_code;           // (B / 64) * N of 64-bit uint64_t
     uint8_t * packed_code;            // packed code with the batch size of 32 vectors
 
-    
     float * x0;                       // N of floats in the Random Net algorithm
     float * centroid;                 // N * B floats (not N * D), note that the centroids should be randomized
-    float * data;                     // N * D floats, note that the datas are not randomized    
+    float * data;                     // N * D floats, note that the datas are not randomized
 
     IVFRN();
+
     IVFRN(const Matrix<float> &X, const Matrix<float> &_centroids, const Matrix<float> &dist_to_centroid,
             const Matrix<float> &_x0, const Matrix<uint32_t> &cluster_id, const Matrix<uint64_t> &binary);
     ~IVFRN();
 
     ResultHeap search(float* query, float* rd_query, uint32_t k, uint32_t nprobe, float distK = std::numeric_limits<float>::max()) const;
     
+    void save(char* filename);
+    void load(char* filename);
+#ifdef __aarch64__
+private:
+    ResultHeap search_fast_scan(const Result* centroid_dist, float16_t* query_f16, float* rd_query, uint32_t nprobe, uint32_t k, float distK) const;
+
+    void compute_factor();
+    void pack_codes_from_file();
+
+    static void scan(ResultHeap &KNNs, float &distK, uint32_t k, \
+                        uint64_t *quant_query, uint64_t *ptr_binary_code,  uint32_t len, Factor *ptr_fac, \
+                        const float  sqr_y, const float vl, const float  width, const float sumq,\
+                        float *query, float *data, uint32_t *id);
+
+    static void fast_scan(ResultHeap &KNNs, float &distK, uint32_t k, \
+                        uint8_t *LUT, uint8_t *packed_code, uint32_t len, Factor_f16 *ptr_fac, \
+                        const float  sqr_y, const float16_t vl, const float  width, const float16_t sumq,\
+                        float16_t *query, float16_t *data, uint32_t *id, float low_dist_scale);
+
+    static void fast_scan_mask(ResultHeap &KNNs, float &distK, uint32_t k, \
+                        uint8_t *LUT, uint8_t *packed_code, uint32_t len, Factor_f16 *ptr_fac, \
+                        const float  sqr_y, const float16_t vl, const float  width, const float16_t sumq,\
+                        float16_t *query, float16_t *data, uint32_t *id, float low_dist_scale);
+#else
     static void scan(ResultHeap &KNNs, float &distK, uint32_t k, \
                         uint64_t *quant_query, uint64_t *ptr_binary_code,  uint32_t len, Factor *ptr_fac, \
                         const float  sqr_y, const float vl, const float  width, const float sumq,\
@@ -66,11 +127,147 @@ public:
                         uint8_t *LUT, uint8_t *packed_code, uint32_t len, Factor *ptr_fac, \
                         const float  sqr_y, const float vl, const float  width, const float sumq,\
                         float *query, float *data, uint32_t *id);
-
-    void save(char* filename);
-    void load(char* filename);
+#endif
 };
 
+#ifdef __aarch64__
+#include "ivf_rabitq_search.h"
+#include "index_io.h"
+#endif
+
+
+// ==============================================================================================================================
+// Construction and Deconstruction Functions
+template <uint32_t D, uint32_t B>
+IVFRN<D, B>::IVFRN(){
+    N = 0;
+    C = 0;
+    start = NULL;
+    len = NULL;
+    id = NULL;
+    x0 = NULL;
+    dist_to_c = NULL;
+    centroid = NULL;
+    data = NULL;
+    binary_code = NULL;
+    fac = NULL;
+    u = NULL;
+#ifdef __aarch64__
+    fac_f16 = NULL;
+    fac_start = NULL;
+    fac_f16_start = NULL;
+    centroid_f16 = NULL;
+    data_f16 = NULL;
+    packed_start = NULL;
+    packed_code  = NULL;
+#endif
+}
+
+template <uint32_t D, uint32_t B>
+IVFRN<D, B>::IVFRN(const Matrix<float> &X, const Matrix<float> &_centroids, const Matrix<float> &dist_to_centroid, 
+            const Matrix<float> &_x0, const Matrix<uint32_t> &cluster_id, const Matrix<uint64_t> &binary) {
+    start = NULL;
+    len = NULL;
+    id = NULL;
+    x0 = NULL;
+    dist_to_c = NULL;
+    centroid = NULL;
+    data = NULL;
+    binary_code = NULL;
+    fac = NULL;
+    u = NULL;
+#ifdef __aarch64__
+    fac_f16 = NULL;
+    fac_start = NULL;
+    fac_f16_start = NULL;
+    centroid_f16 = NULL;
+    data_f16 = NULL;
+    packed_start = NULL;
+    packed_code  = NULL;
+#endif
+
+    N = X.n;
+    C = _centroids.n;
+
+    // check uint64_t
+    assert(B % 64 == 0);
+    assert(B >= D);
+
+    start = new uint32_t [C];
+    len   = new uint32_t [C];
+    id    = new uint32_t [N];
+    dist_to_c = new float [N];
+    x0 = new float [N];
+
+    memset(len, 0, C * sizeof(uint32_t));
+    for(int i=0;i<N;i++)len[cluster_id.data[i]] ++;
+    int sum = 0;
+    for(int i=0;i<C;i++){
+        start[i] = sum;
+        sum += len[i];
+    }
+    for(int i=0;i<N;i++){
+        id[start[cluster_id.data[i]]] = i;
+        dist_to_c[start[cluster_id.data[i]]] = dist_to_centroid.data[i];
+        x0[start[cluster_id.data[i]]] = _x0.data[i];
+        start[cluster_id.data[i]]++;
+    }
+    for(int i=0;i<C;i++){
+        start[i] -= len[i];
+    }
+#ifdef __aarch64__
+    centroid  = static_cast<float*>(upper_bound_aligned_alloc(64, C * B * sizeof(float)));
+    data  = static_cast<float*>(upper_bound_aligned_alloc(64, N * D * sizeof(float)));
+    binary_code  = static_cast<uint64_t*>(upper_bound_aligned_alloc(256, N * B / 64 * sizeof(uint64_t)));
+#else
+    centroid        = new float [C * B];
+    data            = new float [1ull * N * D];
+    binary_code     = new uint64_t [1ull * N * B / 64];
+#endif
+
+    std::memcpy(centroid, _centroids.data, C * B * sizeof(float));
+    float * data_ptr = data;
+    uint64_t * binary_code_ptr = binary_code;
+
+    for(int i=0;i<N;i++){
+        int x = id[i];
+        std::memcpy(data_ptr, X.data + 1ull * x * D, D * sizeof(float));
+        std::memcpy(binary_code_ptr, binary.data + 1ull * x * (B / 64), (B / 64) * sizeof(uint64_t));
+        data_ptr += D;
+        binary_code_ptr += B / 64;
+    }
+}
+
+template <uint32_t D, uint32_t B>
+IVFRN<D, B>::~IVFRN(){
+    if(id != NULL)                      delete [] id;
+    if(dist_to_c != NULL)               delete [] dist_to_c;
+    if(len != NULL)                     delete [] len;
+    if(start != NULL)                   delete [] start;
+    if(x0 != NULL)                      delete [] x0;
+    if(u  != NULL)                      delete [] u;
+
+    if(binary_code != NULL)             std::free(binary_code);
+    if(centroid != NULL)                std::free(centroid);
+
+#ifdef __aarch64__
+    if(packed_start != NULL)            delete [] packed_start;
+
+    if(data != NULL)                    std::free(data);
+    if(data_f16 != NULL)                std::free(data_f16);
+    if(fac_start  != NULL)              std::free(fac_start);
+    if(fac != NULL)                     std::free(fac);
+    if(centroid_f16 != NULL)            std::free(centroid_f16);
+    if(fac_f16_start != NULL)           std::free(fac_f16_start);
+    if(fac_f16 != NULL)                 std::free(fac_f16);
+    if(packed_code != NULL)             std::free(packed_code);
+#else
+    if(data != NULL)                    delete [] data;
+    if(fac != NULL)                     delete [] fac;
+#endif
+}
+
+#ifndef __aarch64__
 // scan impl
 template <uint32_t D, uint32_t B>
 void IVFRN<D, B>::scan(ResultHeap &KNNs, float &distK, uint32_t k, \
@@ -177,7 +374,7 @@ void IVFRN<D, B>::fast_scan(ResultHeap &KNNs, float &distK, uint32_t k, \
                     KNNs.emplace(gt_dist, *id);
                     if(KNNs.size() > k) KNNs.pop();
                     if(KNNs.size() == k)distK = KNNs.top().first;
-                }
+                        }
             }
             data += D;
             ptr_low_dist++;
@@ -277,8 +474,6 @@ ResultHeap IVFRN<D, B>::search(float* query, float* rd_query, uint32_t k, uint32
 }
 
 
-
-
 // ==============================================================================================================================
 // Save and Load Functions
 template <uint32_t D, uint32_t B>
@@ -310,7 +505,6 @@ void IVFRN<D, B>::save(char * filename){
 template <uint32_t D, uint32_t B>
 void IVFRN<D, B>::load(char * filename){
     std::ifstream input(filename, std::ios::binary);
-    //std::cerr << filename << std::endl;
 
     if (!input.is_open())
         throw std::runtime_error("Cannot open file");
@@ -322,10 +516,9 @@ void IVFRN<D, B>::load(char * filename){
     input.read((char *) &C, sizeof(uint32_t));
     input.read((char *) &b, sizeof(uint32_t));
 
-    std::cerr << d << std::endl;
     assert(d == D);
     assert(b == B);
-
+    
     u = new float [B];
 #if defined(RANDOM_QUERY_QUANTIZATION)
     std::random_device rd;
@@ -384,83 +577,4 @@ void IVFRN<D, B>::load(char * filename){
     input.close();
 }
 
-
-// ==============================================================================================================================
-// Construction and Deconstruction Functions
-template <uint32_t D, uint32_t B>
-IVFRN<D, B>::IVFRN(){
-    N = C = 0;
-    start = len = id = NULL;
-    x0 = dist_to_c = centroid = data = NULL;
-    binary_code = NULL;
-    fac = NULL;
-    u = NULL;
-}
-
-template <uint32_t D, uint32_t B>
-IVFRN<D, B>::IVFRN(const Matrix<float> &X, const Matrix<float> &_centroids, const Matrix<float> &dist_to_centroid, 
-            const Matrix<float> &_x0, const Matrix<uint32_t> &cluster_id, const Matrix<uint64_t> &binary){
-    fac=NULL;
-    u = NULL;
-
-    N = X.n;
-    C = _centroids.n;
-    
-    // check uint64_t
-    assert(B % 64 == 0);
-    assert(B >= D);
-
-    start = new uint32_t [C];
-    len   = new uint32_t [C];
-    id    = new uint32_t [N];
-    dist_to_c = new float [N];
-    x0 = new float [N];
-
-    memset(len, 0, C * sizeof(uint32_t));
-    for(int i=0;i<N;i++)len[cluster_id.data[i]] ++;
-    int sum = 0;
-    for(int i=0;i<C;i++){
-        start[i] = sum;
-        sum += len[i];
-    }
-    for(int i=0;i<N;i++){
-        id[start[cluster_id.data[i]]] = i;
-        dist_to_c[start[cluster_id.data[i]]] = dist_to_centroid.data[i];
-        x0[start[cluster_id.data[i]]] = _x0.data[i];
-        start[cluster_id.data[i]]++;
-    }
-    for(int i=0;i<C;i++){
-        start[i] -= len[i];
-    }
-
-    centroid        = new float [C * B];
-    data            = new float [1ull * N * D];
-    binary_code     = new uint64_t [1ull * N * B / 64];
-
-    std::memcpy(centroid, _centroids.data, C * B * sizeof(float));
-    float * data_ptr = data;
-    uint64_t * binary_code_ptr = binary_code;
-
-    for(int i=0;i<N;i++){
-        int x = id[i];
-        std::memcpy(data_ptr, X.data + 1ull * x * D, D * sizeof(float));
-        std::memcpy(binary_code_ptr, binary.data + 1ull * x * (B / 64), (B / 64) * sizeof(uint64_t));
-        data_ptr += D;
-        binary_code_ptr += B / 64;
-    }
-}
-
-template <uint32_t D, uint32_t B>
-IVFRN<D, B>::~IVFRN(){
-    if(id != NULL)          delete [] id;
-    if(dist_to_c != NULL)   delete [] dist_to_c;
-    if(len != NULL)         delete [] len;
-    if(start != NULL)       delete [] start;
-    if(x0 != NULL)          delete [] x0;
-    if(data != NULL)        delete [] data;
-    if(fac != NULL)         delete [] fac;
-    if(u  != NULL)          delete [] u;
-    if(binary_code != NULL) std::free(binary_code);
-    // if(pack_codes  != NULL) std::free(pack_codes);
-    if(centroid != NULL)    std::free(centroid);
-}
+#endif

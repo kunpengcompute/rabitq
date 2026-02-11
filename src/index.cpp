@@ -22,17 +22,31 @@ int main(int argc, char * argv[]) {
         // Indexing Path 
         {"dataset",                     required_argument, 0, 'd'},
         {"source",                      required_argument, 0, 's'},
-    };
+
+        {"data_path",                   required_argument, 0, 'p'},
+        {"metric_type",                      required_argument, 0, 'm'},
+        {"soar_lambda",                      required_argument, 0, 'a'},
+};
 
     int ind;
     int iarg = 0;
     opterr = 1;    //getopt error message (off: 0)
+    float soar_lambda = 0;
 
     char dataset[256]="";
     char source[256]="";
-    
+    char data_path[256] = ""; 
+    char metric_type[256] = "";
+    char scan_type[256] = "";
+
+#if defined(FAST_SCAN)
+    strcpy(scan_type, "fastscan");
+#elif defined(SCAN)
+    char result_file_view[256] = "";
+    strcpy(scan_type, "scan");
+#endif    
     while(iarg != -1){
-        iarg = getopt_long(argc, argv, "d:s:", longopts, &ind);
+        iarg = getopt_long(argc, argv, "d:s:p:m:a:", longopts, &ind);
         switch (iarg){
             case 'd':
                 if(optarg){
@@ -44,13 +58,28 @@ int main(int argc, char * argv[]) {
                     strcpy(source, optarg);
                 }
                 break;
+            case 'p':
+                if(optarg){
+                    strcpy(data_path, optarg);
+                }
+                break;
+            case 'm':
+                if(optarg){
+                    strcpy(metric_type, optarg);
+                }
+                break;           
+            case 'a':
+                if(optarg){
+                    soar_lambda = atof(optarg);
+                    std::cout << "soar_lambda set to: " << soar_lambda << std::endl;
+                }
+                break; 
         }
     }
 
     
     // ==============================================================================================================
     // Load Data
-    char data_path[256] = "";
     char index_path[256] = "";
     char centroid_path[256] = "";
     char x0_path[256] = "";
@@ -58,9 +87,14 @@ int main(int argc, char * argv[]) {
     char cluster_id_path[256] = "";
     char binary_path[256] = "";
 
-    sprintf(data_path, "%s%s_base.fvecs", source, dataset);
-    Matrix<float> X(data_path);
-    
+    float *xb_;
+    int32_t nb_, dim_;
+
+    loadHDFBase(data_path, nb_, dim_, xb_, metric_type);
+
+    Matrix<float> X(xb_, nb_, dim_, false);
+
+    std::cerr << "BB= " <<BB<< std::endl;
     sprintf(centroid_path, "%sRandCentroid_C%d_B%d.fvecs", source, numC, BB);
     Matrix<float> C(centroid_path);
 
@@ -76,13 +110,36 @@ int main(int argc, char * argv[]) {
     sprintf(binary_path, "%sRandNet_C%d_B%d.Ivecs", source, numC, BB);
     Matrix<uint64_t> binary(binary_path);
 
-    sprintf(index_path, "%sivfrabitq%d_B%d.index", source, numC, BB);
+    sprintf(index_path, "%sivfrabitq_%s_%d_B%d.index", source, scan_type, numC, BB);
     std::cerr << "Loading Succeed!" << std::endl << std::endl;
     // ==============================================================================================================
 
-    IVFRN<DIM, BB> ivf(X, C, dist_to_centroid, x0, cluster_id, binary);
+    if (soar_lambda == 0){
+        IVFRN<DIM, BB> ivf(X, C, dist_to_centroid, x0, cluster_id, binary);
+        std::cerr << "start to save\n";
+        ivf.save(index_path);
+    } else {
+        char x0_spilled_path[256] = "";
+        sprintf(x0_spilled_path, "%sx0_spilled_C%d_B%d.fvecs", source, numC, BB);
+        Matrix<float> x0_spilled(x0_spilled_path);
+        
+        char dist_to_spilled_labels_path[256] = "";
+        sprintf(dist_to_spilled_labels_path, "%s%s_dist_to_spilled_labels_%d.fvecs", source, dataset, numC);
+        Matrix<float> dist_to_spilled_labels(dist_to_spilled_labels_path);
+        
+        char binary_spilled_path[256] = "";
+        sprintf(binary_spilled_path, "%sRandNet_spilled_C%d_B%d.Ivecs", source, numC, BB);
+        Matrix<uint64_t> binary_spilled(binary_spilled_path);
 
-    ivf.save(index_path);
+        char spilled_labels_path[256] = "";
+        sprintf(spilled_labels_path, "%s%s_spilled_labels_%d.ivecs", source, dataset, numC);
+        Matrix<uint32_t> spilled_labels(spilled_labels_path);
 
+        std::cerr << "start to init\n";
+        IVFRN<DIM, BB> ivf(X, C, dist_to_centroid, x0, cluster_id, binary);
+        ivf.save(index_path);
+
+    }
+    
     return 0;
 }

@@ -12,8 +12,7 @@
 #include <Eigen/Dense>
 
 template <typename T>
-class Matrix
-{
+class Matrix{
 private:
 
 public:
@@ -31,6 +30,13 @@ public:
     Matrix(const Matrix<T> &X, const size_t id); // row
     Matrix(char * data_file_path); // IO
     Matrix(size_t n); // ID
+    Matrix(T* external_data, size_t n_, size_t d_, bool shallow)
+        : n(n_), d(d_), data(external_data) {
+        // if (!shallow) {          // 深拷贝
+            data = new T[n * d];
+            std::memcpy(data, external_data, sizeof(T) * n * d);
+        // }
+    }
 
     // Deconstruction
     ~Matrix(){
@@ -180,9 +186,9 @@ void Matrix<T>::print(){
         std::cout << "(";
         for(size_t j=0;j<d;j++){
             std::cout << data[i * d + j] << (j == d-1 ? ")":", ");
-        }
-        std:: cout << std::endl;
     }
+        std:: cout << std::endl;
+}
 }
 
 template <typename T>
@@ -304,6 +310,4 @@ double normalize(float *x, unsigned D){
     for(int i=0;i<D;i++)x[i]=v(i);
     return norm;
 }
-
-
 #endif
