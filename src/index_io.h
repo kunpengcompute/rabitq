@@ -335,7 +335,11 @@ void IVFRN<D, B>::load(char * filename){
         if(id_spilled != NULL)           delete [] id_spilled;
         if(dist_to_c_spilled != NULL)    delete [] dist_to_c_spilled;
         if(x0_spilled != NULL)          delete [] x0_spilled;
-        start_spilled = len_spilled = id_spilled = dist_to_c_spilled = x0_spilled = nullptr;
+        start_spilled = nullptr;
+        len_spilled = nullptr;
+        id_spilled = nullptr;
+        dist_to_c_spilled = nullptr;
+        x0_spilled = nullptr;
         FREE_DATA(data_spilled)
         FREE_DATA(binary_code_spilled)
         FREE_DATA(data_f16_spilled)

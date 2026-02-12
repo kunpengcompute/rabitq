@@ -186,7 +186,6 @@ private:
                 query_f16, data_f16 + start[c] * D, id + start[c], low_dist_scale);
                 }
         }
-        free(query_f16);
         return KNNs;
     }
 

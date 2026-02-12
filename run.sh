@@ -122,12 +122,16 @@ index() {
     if [[ "$ARCH" == "x86_64" ]]; then
       g++ -o ./bin/index_${DATASET_NAME} ./src/index.cpp \
           -I ./src/ \
+          -I /usr/include/hdf5/serial/ \
+          -L /usr/lib/aarch64-linux-gnu/hdf5/serial/ \
           -lhdf5_cpp -lhdf5 \
           -O3 -march=native \
           -D BB=${B} -D DIM=${D} -D numC=${K_VALUE} -D B_QUERY=4 ${EXTRA_DEFS}
     elif [[ "$ARCH" == "aarch64" ]]; then
       g++ -o ./bin/index_${DATASET_NAME} ./src/index.cpp \
           -I ./src/ \
+          -I /usr/include/hdf5/serial/ \
+          -L /usr/lib/aarch64-linux-gnu/hdf5/serial/ \
           -lhdf5_cpp -lhdf5 \
           -O3 -march=armv8.2-a+fp16fml+dotprod -fpermissive \
           -D BB=${B} -D DIM=${D} -D numC=${K_VALUE} -D B_QUERY=4 ${EXTRA_DEFS}
@@ -148,13 +152,17 @@ search() {
               -o ./bin/search_${DATASET_NAME} \
               ./src/search.cpp ./src/test_result.cpp \
               -I ./src/ \
+              -I /usr/include/hdf5/serial/ \
+              -L /usr/lib/aarch64-linux-gnu/hdf5/serial/ \
               -lhdf5_cpp -lhdf5 \
               -D BB=${B} -D DIM=${D} -D numC=${K_VALUE} -D B_QUERY=4 ${EXTRA_DEFS}
     elif [[ "$ARCH" == "aarch64" ]]; then
-      clang++ -g -march=armv8-a+fp16fml -mtune=hip12 -falign-loops=64  -fpermissive -ffast-math -fno-trapping-math -funroll-loops -fopenmp -Ofast -flto=full -fuse-ld=lld -Wno-c++11-narrowing \
+      clang++ -g -march=armv8-a+fp16fml -falign-loops=64  -fpermissive -ffast-math -fno-trapping-math -funroll-loops -fopenmp -Ofast -flto=full -fuse-ld=lld -Wno-c++11-narrowing \
               -o ./bin/search_${DATASET_NAME} \
               ./src/search.cpp ./src/test_result.cpp ./src/krl_table_lookup_fast_scan.s \
               -I ./src/ \
+              -I /usr/include/hdf5/serial/ \
+              -L /usr/lib/aarch64-linux-gnu/hdf5/serial/ \
               -lhdf5_cpp -lhdf5 \
               -I`jemalloc-config --includedir` \
               -L`jemalloc-config --libdir` -Wl,-rpath,`jemalloc-config --libdir` \
@@ -203,10 +211,12 @@ train() {
               -o ./bin/search_model_${DATASET_NAME} \
               ./src/search_model.cpp ./src/test_result.cpp ./src/krl_table_lookup_fast_scan.s \
               -I ./src/ \
+              -I /usr/include/hdf5/serial/ \
+              -L /usr/lib/aarch64-linux-gnu/hdf5/serial/ \
+              -lhdf5_cpp -lhdf5 \
               -I`jemalloc-config --includedir` \
               -L`jemalloc-config --libdir` -Wl,-rpath,`jemalloc-config --libdir` \
               -ljemalloc `jemalloc-config --libs` \
-              -lhdf5_cpp -lhdf5 \
               -D BB=${B} -D DIM=${D} -D numC=${K_VALUE} -D B_QUERY=4 ${EXTRA_DEFS}
 
       result_path=./results
