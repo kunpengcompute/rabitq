@@ -231,6 +231,7 @@ void IVFRN<D, B>::load(char * filename){
     assert(d == D);
     assert(b == B);
 
+    if (u != NULL) { delete [] u; u = NULL; }
     u = new float [B];
 #if defined(RANDOM_QUERY_QUANTIZATION)
     std::random_device rd;
@@ -250,8 +251,7 @@ void IVFRN<D, B>::load(char * filename){
     if(id != NULL)           delete [] id;
     if(dist_to_c != NULL)    delete [] dist_to_c;
     if(x0 != NULL)           delete [] x0;
-    if(u != NULL)            delete [] u;
-    
+
     centroid  = static_cast<float*>(upper_bound_aligned_alloc(64, C * B * sizeof(float)));
     data  = static_cast<float*>(upper_bound_aligned_alloc(64, N * D * sizeof(float)));
     binary_code  = static_cast<uint64_t*>(upper_bound_aligned_alloc(256, N * B / 64 * sizeof(uint64_t)));

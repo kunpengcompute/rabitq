@@ -14,6 +14,7 @@
 #include "omp.h"
 #include "test_result.h"
 #include <dlfcn.h>
+#include <cstring>
 #include <iomanip>
 
 using namespace std;
@@ -124,34 +125,75 @@ struct UnifiedSearchParams {
 void* search_single_thread(void* arg) {
     omp_set_num_threads(1);
     UnifiedSearchParams* params = static_cast<UnifiedSearchParams*>(arg);
+    if (params == nullptr) {
+        return nullptr;
+    }
     pthread_mutex_lock(&mtx);
     while (ready == 0) pthread_cond_wait(&cond, &mtx);
     pthread_mutex_unlock(&mtx);
 
     if (params->threshold > 0){
     #ifdef __aarch64__
-        char libpath[512];
-        std::snprintf(libpath, sizeof(libpath),
-                    "data/%s/libadaptivemodel_less.so", params->dataset);
-
-        void *handle = dlopen(libpath, RTLD_LAZY);
-        PredictFunc predFunc = reinterpret_cast<PredictFunc>(dlsym(handle, "predict"));
-        for (int i = 0; i < params->n; i++) {
-
-            ResultHeap KNNs = params->ivf->search(
-                params->query + i * params->dim,
-                params->RandQ + i * params->rand_dim,
-                params->topk,
-                params->nprobe,
-                params->soar_lambda,
-                params->threshold,
-                params->pred_nprobe,
-                predFunc            );
-            int j = 0;
-            int32_t* out = params->I + i * params->topk;
-            while(KNNs.empty() == false){
-                out[j++] = KNNs.top().second;
-                KNNs.pop();
+        void* handle = nullptr;
+        PredictFunc predFunc = nullptr;
+        bool use_adaptive = false;
+        if (params->dataset != nullptr) {
+            const char* ds = params->dataset;
+            if (strstr(ds, "..") == nullptr && strchr(ds, '/') == nullptr && strchr(ds, '\\') == nullptr) {
+                char libpath[512];
+                std::snprintf(libpath, sizeof(libpath),
+                            "data/%s/libadaptivemodel_less.so", params->dataset);
+                handle = dlopen(libpath, RTLD_LAZY);
+                if (handle != nullptr) {
+                    predFunc = reinterpret_cast<PredictFunc>(dlsym(handle, "predict"));
+                    if (predFunc != nullptr) {
+                        use_adaptive = true;
+                    } else {
+                        std::cerr << "HDF5 search: dlsym(predict) failed: " << dlerror() << std::endl;
+                        dlclose(handle);
+                        handle = nullptr;
+                    }
+                } else {
+                    std::cerr << "HDF5 search: dlopen failed: " << dlerror() << std::endl;
+                }
+            } else {
+                std::cerr << "HDF5 search: dataset name must not contain '..', '/', or '\\'" << std::endl;
+            }
+        }
+        if (use_adaptive) {
+            for (int i = 0; i < params->n; i++) {
+                ResultHeap KNNs = params->ivf->search(
+                    params->query + i * params->dim,
+                    params->RandQ + i * params->rand_dim,
+                    params->topk,
+                    params->nprobe,
+                    params->soar_lambda,
+                    params->threshold,
+                    params->pred_nprobe,
+                    predFunc);
+                int j = 0;
+                int32_t* out = params->I + i * params->topk;
+                while(KNNs.empty() == false){
+                    out[j++] = KNNs.top().second;
+                    KNNs.pop();
+                }
+            }
+            if (handle != nullptr) {
+                dlclose(handle);
+            }
+        } else {
+            for (int i = 0; i < params->n; i++) {
+                ResultHeap KNNs = params->ivf->search(
+                    params->query + i * params->dim,
+                    params->RandQ + i * params->rand_dim,
+                    params->topk,
+                    params->nprobe);
+                int j = 0;
+                int32_t* out = params->I + i * params->topk;
+                while(KNNs.empty() == false){
+                    out[j++] = KNNs.top().second;
+                    KNNs.pop();
+                }
             }
         }
     #else
@@ -171,9 +213,7 @@ void* search_single_thread(void* arg) {
                 KNNs.pop();
             }
         }
-        
     }
-    
     return nullptr;
 }
 

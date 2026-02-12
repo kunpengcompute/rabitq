@@ -2,7 +2,8 @@
 #include <chrono>
 #include <queue>
 #include <unordered_set>
-#include <limits>   
+#include <limits>
+#include <stdexcept>
 #include <hdf5.h>
 
 #ifndef WIN32
@@ -268,8 +269,17 @@ void *hdf5_read(const std::string &file_name, const std::string &dataset_name, H
  
     /* Open the file and the dataset. */
     file = H5Fopen(file_name.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+    if (file < 0) {
+        std::cerr << "HDF5: cannot open file " << file_name << std::endl;
+        return nullptr;
+    }
     dataset = H5Dopen2(file, dataset_name.c_str(), H5P_DEFAULT);
- 
+    if (dataset < 0) {
+        std::cerr << "HDF5: cannot open dataset " << dataset_name << " in " << file_name << std::endl;
+        H5Fclose(file);
+        return nullptr;
+    }
+
     /* Get datatype and dataspace handles and then query
      * dataset class, order, size, rank and dimensions. */
     datatype = H5Dget_type(dataset); /* datatype handle */
@@ -329,20 +339,23 @@ void *hdf5_read(const std::string &file_name, const std::string &dataset_name, H
 }
 
 void normalizeVector(float* data, int size) {
+    if (data == nullptr || size <= 0) {
+        return;
+    }
     // Calculate the norm
-    float norm = 0.0;
+    float norm = 0.0f;
     for (int i = 0; i < size; ++i) {
         norm += data[i] * data[i];
     }
     norm = std::sqrt(norm);
- 
+
     // Check if the norm is zero
-    if (norm == 0) {
+    if (norm == 0.0f) {
+        float scale = 1.0f / std::sqrt(static_cast<float>(size));
         for (int i = 0; i < size; ++i) {
-            data[i] = 1.0f / std::sqrt(size);
+            data[i] = scale;
         }
     } else {
-        // Normalize the vector
         for (int i = 0; i < size; ++i) {
             data[i] /= norm;
         }
@@ -353,6 +366,9 @@ void normalizeVector(float* data, int size) {
 void loadHDFBase(const std::string &ann_file_name, int32_t &nb, int32_t &dim, float *&data, std::string metricType)
 {
     data = (float *)hdf5_read(ann_file_name, HDF5_DATASET_TRAIN, H5T_FLOAT, dim, nb);
+    if (data == nullptr) {
+        throw std::runtime_error("loadHDFBase: failed to read HDF5 dataset '" + std::string(HDF5_DATASET_TRAIN) + "' from " + ann_file_name);
+    }
     if (metricType == "dot_product") {
         for (int i = 0; i < nb; i ++)
             normalizeVector(data + i * dim, dim);
@@ -363,22 +379,34 @@ void loadHDF(const std::string &ann_file_name, int32_t &nb, int32_t &nq, int32_t
     float *&data, float *&queries, int64_t *&gt_ids, float *&gt_dist, std::string metricType)
 {
     data = (float *)hdf5_read(ann_file_name, HDF5_DATASET_TRAIN, H5T_FLOAT, dim, nb);
+    if (data == nullptr) {
+        throw std::runtime_error("loadHDF: failed to read HDF5 dataset '" + std::string(HDF5_DATASET_TRAIN) + "' from " + ann_file_name);
+    }
     if (metricType == "dot_product") {
         for (int i = 0; i < nb; i ++)
             normalizeVector(data + i * dim, dim);
     }
     queries = (float *)hdf5_read(ann_file_name, HDF5_DATASET_TEST, H5T_FLOAT, dim, nq);
+    if (queries == nullptr) {
+        throw std::runtime_error("loadHDF: failed to read HDF5 dataset '" + std::string(HDF5_DATASET_TEST) + "' from " + ann_file_name);
+    }
     if (metricType == "dot_product") {
         for (int i = 0; i < nq; i ++)
             normalizeVector(queries + i * dim, dim);
     }
     int32_t *gt_ids_short = (int32_t *)hdf5_read(ann_file_name, HDF5_DATASET_NEIGHBORS, H5T_INTEGER, gt_closest, nq);
+    if (gt_ids_short == nullptr) {
+        throw std::runtime_error("loadHDF: failed to read HDF5 dataset '" + std::string(HDF5_DATASET_NEIGHBORS) + "' from " + ann_file_name);
+    }
     gt_ids = new int64_t[gt_closest * nq];
     for (int i = 0; i < gt_closest * nq; i++) {
         gt_ids[i] = gt_ids_short[i];
     }
     delete[] gt_ids_short;
     float *dist_short = (float *)hdf5_read(ann_file_name, HDF5_DATASET_DISTANCES, H5T_FLOAT, gt_closest, nq);
+    if (dist_short == nullptr) {
+        throw std::runtime_error("loadHDF: failed to read HDF5 dataset '" + std::string(HDF5_DATASET_DISTANCES) + "' from " + ann_file_name);
+    }
     gt_dist = new float[gt_closest * nq];
     for (int i = 0; i < gt_closest * nq; i++) {
         gt_dist[i] = dist_short[i];

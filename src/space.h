@@ -69,6 +69,9 @@ public:
 #ifdef __aarch64__
 KRL_IMPRECISE_FUNCTION_BEGIN
 void quant_f16(const float* src, size_t n, float16_t* out) {
+    if (src == nullptr || out == nullptr || n == 0) {
+        return;
+    }
     size_t l = 0;
     constexpr size_t single_loop = 4;
     constexpr size_t multi_loop = 16;
@@ -122,7 +125,9 @@ inline uint32_t neon_movemask(uint8x16_t input) {
 // ==============================================================
 template <uint32_t D, uint32_t B>
 void Space<D, B>::transpose_bin(uint8_t *q, uint64_t *tq) {
-
+    if (q == nullptr || tq == nullptr) {
+        return;
+    }
     for (int i = 0; i < B; i += 32) {
         // 加载32字节到两个NEON寄存器
         uint8x16_t v_low = vld1q_u8(q);
@@ -164,6 +169,9 @@ void Space<D, B>::transpose_bin(uint8_t *q, uint64_t *tq) {
 // ==============================================================
 template <uint32_t D, uint32_t B>
 void Space<D, B>::transpose_bin(uint8_t *q, uint64_t *tq){
+    if (q == nullptr || tq == nullptr) {
+        return;
+    }
     for(int i=0;i<B;i+=32){
         __m256i v = _mm256_load_si256(reinterpret_cast<__m256i*>(q));
         v = _mm256_slli_epi32(v, (8-B_QUERY));

@@ -434,8 +434,10 @@ void IVFRN<D, B>::fast_scan_soar(ResultHeap &KNNs, float &distK, uint32_t k, \
             float gt = krl_L2sqr_f16f32<D>(query, data + (j + cnt_count) * D);  \
             if (gt < distK) {                                                   \
                 KNNs.emplace(gt, id[j + cnt_count]);                            \
-                KNNs.pop();                                                     \
-                distK = KNNs.top().first;                                       \
+                if (KNNs.size() > k) {                                          \
+                    KNNs.pop();                                                 \
+                    distK = KNNs.top().first;                                   \
+                }                                                               \
             }                                                                   \
         }                                                                       \
         while (cnt) {                                                           \
@@ -444,8 +446,10 @@ void IVFRN<D, B>::fast_scan_soar(ResultHeap &KNNs, float &distK, uint32_t k, \
             float gt = krl_L2sqr_f16f32<D>(query, data + (j + cnt_count) * D);  \
             if (gt < distK) {                                                   \
                 KNNs.emplace(gt, id[j + cnt_count]);                            \
-                KNNs.pop();                                                     \
-                distK = KNNs.top().first;                                       \
+                if (KNNs.size() > k) {                                          \
+                    KNNs.pop();                                                 \
+                    distK = KNNs.top().first;                                   \
+                }                                                               \
             }                                                                   \
         }                                                                       \
         local_distK = (distK - sqr_y) * low_dist_scale;                         \
@@ -499,7 +503,7 @@ void IVFRN<D, B>::fast_scan_mask(ResultHeap &KNNs, float &distK, uint32_t k, \
         data += remain * D;
         id += remain;
 
-       if (last_remain) {
+    if (last_remain) {
             uint32_t cnt;
             PROCESS_16_LOW_DIST(remain); 
             cnt &= ((1 << last_remain) - 1);
@@ -636,11 +640,14 @@ ResultHeap IVFRN<D, B>::search(float* query, float* rd_query, uint32_t k, uint32
     // ===========================================================================================================
 #if defined(FAST_SCAN)
     quant_f16(query, D, query_f16);
+    ResultHeap ret;
     if (soar_lambda > 0){
-        return search_fast_scan<true>(centroid_dist, query_f16, rd_query, nprobe, k, distK);
+        ret = search_fast_scan<true>(centroid_dist, query_f16, rd_query, nprobe, k, distK);
     } else {
-        return search_fast_scan<false>(centroid_dist, query_f16, rd_query, nprobe, k, distK);
+        ret = search_fast_scan<false>(centroid_dist, query_f16, rd_query, nprobe, k, distK);
     }
+    free(query_f16);
+    return ret;
 #elif defined(SCAN)
     ResultHeap KNNs;
     free(query_f16);
