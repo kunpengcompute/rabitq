@@ -389,7 +389,7 @@ inline float krl_L2sqr_f32f16f32(const float* x, const float16_t* y) {
 template <uint32_t d>
 inline float sqr_dist(const float* x, const float* y) {
     if constexpr(d == 784) {
-        float sum ;
+        float sum = 0.0f;
         for (uint32_t i = 0; i < d; ++i) {
             float tmp = x[i] - y[i];
             sum += tmp * tmp;

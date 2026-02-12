@@ -73,11 +73,11 @@ esac
 
 # 数据集参数
 declare -A DATASET_PARAMS=(
-    ["sift"]="2048 77"
-    ["deep"]="4096 95"
-    ["glove"]="2048 800"
-    ["fashion"]="128 6" 
-    ["gist"]="2048 210"
+    ["sift"]="2048 77 0 0 0"
+    ["deep"]="4096 95 0 0 0"
+    ["glove"]="2048 800 0 0 0"
+    ["fashion"]="128 6 0 0 0" 
+    ["gist"]="2048 210 0 0 0"
 )
 
 read K_VALUE NPROBE THRESHOLD PRED_NPROBE SOAR_LAMBDA <<< "${DATASET_PARAMS[$DATASET_NAME]}"
@@ -114,16 +114,16 @@ index() {
     echo "=== 开始构建索引 ==="
     export LD_LIBRARY_PATH="$HDF5_LIB_ROOT_DIR/lib:$LD_LIBRARY_PATH"
     if [[ "$ARCH" == "x86_64" ]]; then
-      g++ -o ./bin/index_${DATASET_NAME} ./src/index.cpp \
+      clang++ -o ./bin/index_${DATASET_NAME} ./src/index.cpp \
           -I ./src/ -I$HDF5_LIB_ROOT_DIR/include/ \
           -L$HDF5_LIB_ROOT_DIR/lib/ \
           -lhdf5_cpp -lhdf5 \
           -O3 -march=native \
           -D BB=${B} -D DIM=${D} -D numC=${K_VALUE} -D B_QUERY=4 ${EXTRA_DEFS}
     elif [[ "$ARCH" == "aarch64" ]]; then
-      g++ -o ./bin/index_${DATASET_NAME} ./src/index.cpp \
-          -I ./src/ -I$HDF5_LIB_PATH/include/ \
-          -L$HDF5_LIB_PATH/lib/ \
+      clang++ -o ./bin/index_${DATASET_NAME} ./src/index.cpp \
+          -I ./src/ -I /usr/include/hdf5/serial/ \
+          -L /usr/lib/aarch64-linux-gnu/hdf5/serial/ \
           -lhdf5_cpp -lhdf5 \
           -O3 -march=armv8.2-a+fp16fml+dotprod -fpermissive \
           -D BB=${B} -D DIM=${D} -D numC=${K_VALUE} -D B_QUERY=4 ${EXTRA_DEFS}
@@ -148,11 +148,11 @@ search() {
               -lhdf5_cpp -lhdf5 \
               -D BB=${B} -D DIM=${D} -D numC=${K_VALUE} -D B_QUERY=4 ${EXTRA_DEFS}
     elif [[ "$ARCH" == "aarch64" ]]; then
-      clang++ -g -march=armv8-a+fp16fml -mtune=hip12 -falign-loops=64  -fpermissive -ffast-math -fno-trapping-math -funroll-loops -fopenmp -Ofast -flto=full -fuse-ld=lld -Wno-c++11-narrowing \
+      clang++ -g -march=armv8-a+fp16fml -falign-loops=64 -fpermissive -ffast-math -fno-trapping-math -funroll-loops -fopenmp -Ofast -flto=full -fuse-ld=lld -Wno-c++11-narrowing \
               -o ./bin/search_${DATASET_NAME} \
               ./src/search.cpp ./src/test_result.cpp ./src/krl_table_lookup_fast_scan.s \
-              -I ./src/ -I$HDF5_LIB_ROOT_DIR/include/ \
-              -L$HDF5_LIB_ROOT_DIR/lib/ \
+              -I ./src/ -I /usr/include/hdf5/serial/ \
+              -L /usr/lib/aarch64-linux-gnu/hdf5/serial/ \
               -lhdf5_cpp -lhdf5 \
               -I`jemalloc-config --includedir` \
               -L`jemalloc-config --libdir` -Wl,-rpath,`jemalloc-config --libdir` \
