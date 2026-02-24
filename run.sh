@@ -75,9 +75,9 @@ esac
 declare -A DATASET_PARAMS=(
     ["sift"]="2048 77 0 0 0"
     ["deep"]="4096 95 0 0 0"
-    ["glove"]="2048 800 0 0 0"
+    ["glove"]="2048 765 0 0 0"
     ["fashion"]="128 6 0 0 0" 
-    ["gist"]="2048 210 0 0 0"
+    ["gist"]="2048 100 0 0 0"
 )
 
 read K_VALUE NPROBE THRESHOLD PRED_NPROBE SOAR_LAMBDA <<< "${DATASET_PARAMS[$DATASET_NAME]}"
