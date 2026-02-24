@@ -58,6 +58,7 @@ target_compile_options(rabitq_unit_test PRIVATE
     -O3
     -g
     -D FAST_SCAN
+    -DnumC=128
     -fprefetch-loop-arrays
     -march=armv8.2-a+lse+fp16+dotprod+fp16fml
     -mtune=tsv110

@@ -408,6 +408,7 @@ IVFRN<D, B>::~IVFRN() {
     if(id_spilled != NULL)              delete [] id_spilled;
     if(dist_to_c_spilled != NULL)       delete [] dist_to_c_spilled;
     if(x0_spilled != NULL)              delete [] x0_spilled;
+    if(data != NULL)                    std::free(data);
 
     if(packed_start != NULL)            delete [] packed_start;
     if(packed_start_spilled != NULL)    delete [] packed_start_spilled;

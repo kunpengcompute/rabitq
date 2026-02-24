@@ -53,6 +53,7 @@ case "${DATASET_NAME}" in
     D=960
     B=960
     ;;
+
   *)
     echo "Invalid dataset: ${DATASET_NAME}. Available: sift | deep | glove | fashion | gist"
     exit 2
@@ -78,8 +79,8 @@ esac
     )
   elif [[ "$ARCH" == "aarch64" ]]; then
     declare -A DATASET_PARAMS=(
-        ["sift"]="2048 75 0.4 40 0"
-        ["deep"]="4096 34 0 0 1.2"
+        ["sift"]="2048 77 0.4 40 0"
+        ["deep"]="4096 90 0 0 1.2"
         ["glove"]="2048 765 0 0 0"
         ["fashion"]="128 6 0 0 0"
         ["gist"]="2048 100 0.34 43 1.2"
