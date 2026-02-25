@@ -2,22 +2,31 @@
 #define USE_AVX2
 #include <iostream>
 #include <fstream>
-
 #include <ctime>
 #include <cmath>
 #include <matrix.h>
 #include <utils.h>
 #include <ivf_rabitq.h>
 #include <getopt.h>
+#include <memory>
+#include <pthread.h>
+#include <unistd.h>
+#include "omp.h"
+#include "test_result.h"
+#include <dlfcn.h>
+#include <iomanip>
 
 using namespace std;
 
-const int MAXK = 100;
+constexpr int MAXK = 100;
+constexpr int num_threads = 48;//48;
+constexpr int nloop = 8;
+constexpr bool USE_PTHREAD = true;
 
 long double rotation_time=0;
 
 template<uint32_t D, uint32_t B>
-void test(const Matrix<float> &Q, const Matrix<float> &RandQ, const Matrix<float> &X, const Matrix<unsigned> &G, 
+void test(const Matrix<float> &Q, const Matrix<float> &RandQ, const Matrix<float> &X, const Matrix<int64_t> &G, 
             const IVFRN<D, B> &ivf, int k){
     float sys_t, usr_t, usr_t_sum = 0, total_time=0, search_time=0;
     struct rusage run_start, run_end;
@@ -25,7 +34,7 @@ void test(const Matrix<float> &Q, const Matrix<float> &RandQ, const Matrix<float
     // ========================================================================
     // Search Parameter
     vector<int> nprobes;
-    nprobes.push_back(300);
+    nprobes.push_back(50);
     // ========================================================================
     
     for(auto nprobe:nprobes){
@@ -33,37 +42,112 @@ void test(const Matrix<float> &Q, const Matrix<float> &RandQ, const Matrix<float
         float total_ratio=0;
         int correct = 0;
 
+        std::vector<int32_t> labels;
         for(int i=0;i<Q.n;i++){
             GetCurTime( &run_start);
+            // std::cerr << "start to search\n";
             ResultHeap KNNs = ivf.search(Q.data + i * Q.d, RandQ.data + i * RandQ.d, k, nprobe);
             GetCurTime( &run_end);
             GetTime( &run_start, &run_end, &usr_t, &sys_t);
             total_time += usr_t * 1e6;
-            total_ratio += getRatio(i, Q, X, G, KNNs);
+            // total_ratio += getRatio(i, Q, X, G, KNNs);
             
             int tmp_correct = 0;
             while(KNNs.empty() == false){
                 int id = KNNs.top().second;
+                labels.emplace_back(id);
                 KNNs.pop();
                 for(int j=0;j<k;j++)
                     if(id == G.data[i * G.d + j])tmp_correct ++;
             }
             correct += tmp_correct;
-            std::cerr << "recall = " << tmp_correct << " / " << k << " " << i + 1 << " / " << Q.n << " " << usr_t * 1e6 << "us" << std::endl;
+            // std::cerr << "recall = " << tmp_correct << " / " << k << " " << i + 1 << " / " << Q.n << " " << usr_t * 1e6 << "us" << std::endl;
         }
+        std::ofstream of2("labels.bin", std::ios::out | std::ios::binary);
+        of2.write(reinterpret_cast<char *>(labels.data()), labels.size() * sizeof(int32_t));
+        of2.close();
         float time_us_per_query = total_time / Q.n + rotation_time;
         float recall = 1.0f * correct / (Q.n * k);
         float average_ratio = total_ratio / (Q.n * k);
         
-        cout << "------------------------------------------------" << endl;
-        cout << "nprobe = " << nprobe << " k = " << k <<  endl;
-        cout << "Recall = " << recall * 100.000 << "%\t" << "Ratio = " << average_ratio << endl;
-        cout << "Time = " << time_us_per_query << " us \t QPS = " << 1e6 / (time_us_per_query) << " query/s" << endl;
+        cerr << "------------------------------------------------" << endl;
+        cerr << "nprobe = " << nprobe << " k = " << k <<  endl;
+        cerr << "Recall = " << recall * 100.000 << "%\t" << "Ratio = " << average_ratio << endl;
+        cerr << "Time = " << time_us_per_query << " us \t QPS = " << 1e6 / (time_us_per_query) << " query/s" << endl;
         
     }
 }
 
+/* 全局同步变量 */
+pthread_mutex_t mtx;
+pthread_cond_t cond;
+int ready = 0;
+
+std::vector<int> getAvailableCPUs() {
+    cpu_set_t mask;
+    CPU_ZERO(&mask);
+    if (sched_getaffinity(getpid(), sizeof(cpu_set_t), &mask) == -1) {
+        perror("sched_getaffinity");
+        return {};
+    }
+
+    std::vector<int> cpuList;
+    for (int i = 0; i < CPU_SETSIZE; ++i) {
+        if (CPU_ISSET(i, &mask)) {
+            cpuList.push_back(i);
+        }
+    }
+
+    return cpuList;
+}
+
+/* 统一线程参数 */
+struct UnifiedSearchParams {
+    IVFRN<DIM, BB>* ivf;
+    float* query;
+    float* RandQ;
+    int nprobe;
+    int topk;
+    int* I;
+    int n;
+    int dim;
+    int rand_dim;
+    uint32_t pred_nprobe;
+    float threshold;
+    char* dataset;
+    float soar_lambda;
+    double thread_time;       /* 线程实际耗时 */
+    // float* new_data;
+};
+
+void* search_single_thread(void* arg) {
+    omp_set_num_threads(1);
+    UnifiedSearchParams* params = static_cast<UnifiedSearchParams*>(arg);
+    pthread_mutex_lock(&mtx);
+    while (ready == 0) pthread_cond_wait(&cond, &mtx);
+    pthread_mutex_unlock(&mtx);
+
+    for (int i = 0; i < params->n; i++) {
+        ResultHeap KNNs = params->ivf->search(
+            params->query + i * params->dim,
+            params->RandQ + i * params->rand_dim,
+            params->topk,
+            params->nprobe
+        );
+        int j = 0;
+        int32_t* out = params->I + i * params->topk;
+        while(KNNs.empty() == false) {
+            int id = KNNs.top().second;
+            out[j++] = KNNs.top().second;
+            KNNs.pop();
+        }
+    }
+    
+    return nullptr;
+}
+
 int main(int argc, char * argv[]) {
+    // check_stack_size();
 
     const struct option longopts[] ={
         // General Parameter
@@ -71,11 +155,15 @@ int main(int argc, char * argv[]) {
 
         // Query Parameter 
         {"K",                           required_argument, 0, 'k'},
+        {"Nprobe",                      required_argument, 0, 'n'},
 
         // Indexing Path 
         {"dataset",                     required_argument, 0, 'd'},
         {"source",                      required_argument, 0, 's'},
         {"result_path",                 required_argument, 0, 'r'},
+
+        {"data_path",                   required_argument, 0, 'p'},
+        {"metric_type",                      required_argument, 0, 'm'},
     };
 
     int ind;
@@ -85,15 +173,36 @@ int main(int argc, char * argv[]) {
     char dataset[256] = "";
     char source[256] = "";
     char result_path[256] = "";
+    char data_path[256] = ""; 
+    char metric_type[256] = "";
+    char scan_type[256] = "";
 
-    int subk = 0;
+#if defined(FAST_SCAN)
+    strcpy(scan_type, "fastscan");
+#elif defined(SCAN)
+    strcpy(scan_type, "scan");
+#endif
+    int topk = 10;
+    int nprobe = 0;
+    float threshold = 0;
+    uint32_t pred_nprobe = 0;
+    float soar_lambda = 0;
     
     while(iarg != -1){
-        iarg = getopt_long(argc, argv, "d:r:k:s:", longopts, &ind);
+        iarg = getopt_long(argc, argv, "d:r:k:n:s:p:m:t:e:a:", longopts, &ind);
         switch (iarg){
             case 'k':
-                if(optarg)subk = atoi(optarg);
-                break;  
+                if(optarg){
+                    topk = atoi(optarg);
+                    std::cout << "TopK set to: " << topk << std::endl;
+                }
+                break;
+            case 'n':
+                if(optarg){
+                    nprobe = atoi(optarg);
+                    std::cout << "Nprobe set to: " << nprobe << std::endl;
+                }
+                break;           
             case 's':
                 if(optarg)strcpy(source, optarg);
                 break;
@@ -103,29 +212,62 @@ int main(int argc, char * argv[]) {
             case 'd':
                 if(optarg)strcpy(dataset, optarg);
                 break;
+            case 'p':
+                if(optarg)strcpy(data_path, optarg);
+                break;
+            case 'm':
+                if(optarg)strcpy(metric_type, optarg);
+                break;           
+            case 't':
+                if(optarg){
+                    threshold = atof(optarg);
+                    std::cout << "threshold set to: " << threshold << std::endl;
+                }
+                break; 
+            case 'e':
+                if(optarg){
+                    pred_nprobe = atoi(optarg);
+                    std::cout << "pred_nprobe set to: " << pred_nprobe << std::endl;
+                }
+                break; 
+            case 'a':
+                if(optarg){
+                    soar_lambda = atof(optarg);
+                    std::cout << "soar_lambda set to: " << soar_lambda << std::endl;
+                }
+                break; 
         }
     }
     
     // ================================================================================================================================
     // Data Files
-    char query_path[256] = "";
-    sprintf(query_path, "%s%s_query.fvecs", source, dataset);
-    Matrix<float> Q(query_path);
+    // char query_path[256] = "";
+    // sprintf(query_path, "%s%s_query.fvecs", source, dataset);
+    // Matrix<float> Q(query_path);
 
-    char data_path[256] = "";
-    sprintf(data_path, "%s%s_base.fvecs", source, dataset);
-    Matrix<float> X(data_path);
+    // char data_path[256] = "";
+    // sprintf(data_path, "%s%s_base.fvecs", source, dataset);
+    // Matrix<float> X(data_path);
 
-    char groundtruth_path[256] = "";
-    sprintf(groundtruth_path, "%s%s_groundtruth.ivecs", source, dataset);
-    Matrix<unsigned> G(groundtruth_path);
+    // char groundtruth_path[256] = "";
+    // sprintf(groundtruth_path, "%s%s_groundtruth.ivecs", source, dataset);
+    // Matrix<unsigned> G(groundtruth_path);
     
+    float *xb_;
+    float *xq_;
+    int64_t *gt_ids_;
+    float *gt_dists_;
+    int32_t nb_, nq_, dim_, gt_closest;
+
+    loadHDF(data_path, nb_, nq_, dim_, gt_closest, xb_, xq_, gt_ids_, gt_dists_, metric_type);
+
     char transformation_path[256] = "";
     sprintf(transformation_path, "%sP_C%d_B%d.fvecs", source, numC, BB);
-    Matrix<float> P(transformation_path);
+    Matrix<float> Q(xq_, nq_, dim_, false);
+    Matrix<int64_t> G(gt_ids_, nq_, gt_closest, false);
 
     char index_path[256] = "";
-    sprintf(index_path, "%sivfrabitq%d_B%d.index", source, numC, BB);
+    sprintf(index_path, "%sivfrabitq_%s_%d_B%d.index", source, scan_type, numC, BB);
     std::cerr << index_path << std::endl;
 #if defined(FAST_SCAN)
     char result_file_view[256] = "";
@@ -133,7 +275,11 @@ int main(int argc, char * argv[]) {
 #elif defined(SCAN)
     char result_file_view[256] = "";
     sprintf(result_file_view, "%s%s_ivfrabitq%d_B%d_scan.log", result_path, dataset, numC, BB);
-#endif
+#endif    // char probe_path[256] = "";
+    // sprintf(probe_path, "data/%s/probe_info1.fvecs", dataset);
+
+    // Matrix<float> probe_info(probe_path);
+    
     std::cerr << "Loading Succeed!" << std::endl;
     // ================================================================================================================================
 
@@ -142,19 +288,177 @@ int main(int argc, char * argv[]) {
     
     IVFRN<DIM, BB> ivf;
     ivf.load(index_path);
-    
+
     float sys_t, usr_t, usr_t_sum = 0, total_time=0, search_time=0;
     struct rusage run_start, run_end;
     GetCurTime( &run_start);
 
     Matrix<float> RandQ(Q.n, BB, Q);
-    RandQ = mul(RandQ, P);
+
+    {
+        // Matrix<float> X(xb_, nb_, dim_, false);
+        Matrix<float> P(transformation_path);
+        RandQ = mul(RandQ, P);
+    }
+
     
     GetCurTime( &run_end);
     GetTime( &run_start, &run_end, &usr_t, &sys_t);
     rotation_time = usr_t * 1e6 / Q.n;
+
+    /* 准备结果存储 - 每个线程有自己的结果缓冲区 */
+    std::vector<int*> I_vec(num_threads);
+    for (int i = 0; i < num_threads; ++i) {
+        I_vec[i] = new int[Q.n * topk];
+    }
+    // std::cerr << "size of Q " << sizeof(float) * Q.n * Q.d / 1024.0 / 1024.0 / 1024.0 << " GB" << std::endl;
+    // std::cerr << "size of X " << sizeof(float) * X.n * X.d / 1024.0 / 1024.0 / 1024.0 << " GB" << std::endl;
+    // std::cerr << "size of G " << sizeof(int64_t) * G.n * G.d / 1024.0 / 1024.0 / 1024.0 << " GB" << std::endl;
+    // std::cerr << "size of P " << sizeof(float) * P.n * P.d / 1024.0 / 1024.0 / 1024.0 << " GB" << std::endl;
+    // std::cerr << "size of RandQ " << sizeof(float) * RandQ.n * RandQ.d / 1024.0 / 1024.0 / 1024.0 << " GB" << std::endl;
+    // double sum_metrix_size = sizeof(float) * Q.n * Q.d / 1024.0 / 1024.0 / 1024.0 +
+    //                           sizeof(float) * X.n * X.d / 1024.0 / 1024.0 / 1024.0 +
+    //                           sizeof(int64_t) * G.n * G.d / 1024.0 / 1024.0 / 1024.0 +
+    //                           sizeof(float) * P.n * P.d / 1024.0 / 1024.0 / 1024.0 +
+    //                           sizeof(float) * RandQ.n * RandQ.d / 1024.0 / 1024.0 / 1024.0;
+    // std::cerr << "Metrix total size " << sum_metrix_size << " GB" << std::endl;
+    // std::cerr << "size of I_vec " << sizeof(int) * Q.n * topk / 1024.0 / 1024.0 / 1024.0 << " GB" << std::endl;
+
     
-    test(Q, RandQ, X, G, ivf, subk);
+    struct timespec start, end;
+    double timeElapsed = (end.tv_sec - start.tv_sec) + 1e-9 * (end.tv_nsec - start.tv_nsec);
+    TestResult tr;
+
+    std::vector<UnifiedSearchParams> params(num_threads);
+    for (int i = 0; i < num_threads; ++i) {
+        params[i] = UnifiedSearchParams {
+            &ivf,
+            Q.data,
+            RandQ.data,
+            nprobe,
+            topk,
+            I_vec[i],
+            Q.n,
+            Q.d,
+            RandQ.d,
+            pred_nprobe,
+            threshold,
+            dataset,
+            soar_lambda        };
+    }
+    /* 多轮测试 */
+    for (int iter = 0; iter < nloop; iter++) {
+        /* 创建线程 */
+        if (USE_PTHREAD) {
+            std::vector<pthread_t> threads(num_threads);
+            std::vector<int> cpu_ids = getAvailableCPUs();
+            pthread_mutex_init(&mtx, nullptr);
+            pthread_cond_init(&cond, nullptr);
+            ready = 0;
+            for (int i = 0; i < num_threads; ++i) {
+                pthread_create(&threads[i], nullptr, search_single_thread, &params[i]);
+                
+                /* 线程绑核 */
+                cpu_set_t cpuset;
+                CPU_ZERO(&cpuset);
+                CPU_SET(cpu_ids[i], &cpuset);
+                pthread_setaffinity_np(threads[i], sizeof(cpu_set_t), &cpuset);
+            }
+            /* 同步启动所有线程 */
+            sleep(1); /* 确保所有线程已启动 */
+            pthread_mutex_lock(&mtx);
+            ready = 1;
+            pthread_cond_broadcast(&cond);
+            pthread_mutex_unlock(&mtx);
+            clock_gettime(CLOCK_MONOTONIC, &start);
+            for (int i = 0; i < num_threads; i++) {
+                pthread_join(threads[i], nullptr);
+            }
+            clock_gettime(CLOCK_MONOTONIC, &end);
+        } else {
+            setenv("OMP_PROC_BIND", "true", 1);
+            setenv("OMP_PLACES", "cores", 1);
+            clock_gettime(CLOCK_MONOTONIC, &start);
+            #pragma omp parallel num_threads(num_threads)
+            {
+                struct timespec startTime, endTime;
+                int tid = omp_get_thread_num();
+                clock_gettime(CLOCK_MONOTONIC, &startTime);
+                search_single_thread(&params[tid]);
+                clock_gettime(CLOCK_MONOTONIC, &endTime);
+                params[tid].thread_time = (endTime.tv_sec - startTime.tv_sec) + 1e-9 * (endTime.tv_nsec - startTime.tv_nsec);
+            }
+            clock_gettime(CLOCK_MONOTONIC, &end);
+        }
+
+        /* 记录结果 */
+        double elapsed_total = (end.tv_sec - start.tv_sec) 
+                             + 1e-9 * (end.tv_nsec - start.tv_nsec);
+        double avg_thread_time = 0.0;
+        double max_thread_time = 0.0;
+        double min_thread_time = std::numeric_limits<double>::max();
+        
+        for (int i = 0; i < num_threads; i++) {
+            avg_thread_time += params[i].thread_time;
+            if (params[i].thread_time > max_thread_time) 
+                max_thread_time = params[i].thread_time;
+            if (params[i].thread_time < min_thread_time) 
+                min_thread_time = params[i].thread_time;
+        }
+        avg_thread_time /= num_threads;
+        
+        // 计算两种QPS
+        double qps_total = Q.n / elapsed_total;
+        double qps_avg = Q.n / avg_thread_time;
+
+        /* 记录结果 */
+        tr.search_time.push_back(elapsed_total);
+        tr.total_time += elapsed_total;
+        cout << "Loop " << iter + 1 << "/" << nloop << ":\n"
+             << "  Total search time = " << elapsed_total << " s\n"
+             << "  Thread time stats: min=" << min_thread_time << " s, "
+             << "avg=" << avg_thread_time << " s, "
+             << "max=" << max_thread_time << " s\n"
+             << "  QPS (based on total time) = " << qps_total << "\n"
+             << "  QPS (based on thread avg) = " << qps_avg << endl;
+        
+        /* 清理同步变量 */
+        pthread_mutex_destroy(&mtx);
+        pthread_cond_destroy(&cond);
+    }
+
+    /* 计算召回率 */
+    int n_10 = 0;
+    for (int iq = 0; iq < Q.n; iq++) {
+        for (int i = 0; i < topk; i++) {
+            for (int j = 0; j < topk; j++) {
+                // std::cerr << "id = " << I_vec[0][iq * topk + j] << std::endl;
+                if (I_vec[0][iq * topk + j] == G.data[iq * gt_closest + i]) {
+                    n_10++;
+                }
+            }
+        }
+    }
+    std::cerr << "n_10 = " << n_10 << std::endl;
+    tr.recall = n_10 / static_cast<float>(Q.n) / topk;
+    std::cerr << "tr.recall = " << tr.recall << std::endl;
+    tr.calculate_quantity = Q.n;
+
+    /* 清理资源 */
+    for (int i = 0; i < num_threads; ++i) {
+        delete[] I_vec[i];
+    }
     
+    if (nloop >= 4) {
+        int begin_id = nloop / 4;       /* 跳过前1/4的循环 */
+        int end_id = nloop * 3 / 4;     /* 取中间50%的循环（从1/4到3/4） */
+        tr.reorder();                   /* 对搜索时间进行排序并计算累积时间 */
+        double qps = tr.calculate_quantity / tr.get_total(begin_id, end_id) * (end_id - begin_id);
+        cerr << "Final Results: qps " << std::fixed << std::setprecision(1) << qps << " recall " << std::setprecision(5) << tr.recall << endl;
+    } else {
+        double qps = tr.calculate_quantity * nloop / tr.total_time;
+        cerr << "Final Results: qps " << std::fixed << std::setprecision(0) << qps << " recall " << std::setprecision(5) << tr.recall << endl;
+    }
+
     return 0;
 }
