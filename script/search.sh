@@ -1,5 +1,5 @@
 
-
+#!/bin/bash
 
 source='./data'
 data='sift'
@@ -8,10 +8,11 @@ B=128
 D=128
 k=100
 
+mkdir -p bin
 g++ -march=core-avx2 -Ofast -o ./bin/search_${data} ./src/search.cpp -I ./src/ -D BB=${B} -D DIM=${D} -D numC=${C} -D B_QUERY=4 -D FAST_SCAN
 
 result_path=./results
-mkdir ${result_path}
+mkdir -p ${result_path}
 
 res="${result_path}/${data}/"
 
