@@ -1,76 +1,92 @@
-# [SIGMOD 2024] RaBitQ: Quantizing High-Dimensional Vectors with a Theoretical Error Bound for Approximate Nearest Neighbor Search
+# RaBitQ介绍
 
-## News and Updates
+## 最新消息
 
-* **A library with more practical implementation techniques about RaBitQ is released at the [RaBitQ-Library](https://github.com/VectorDB-NTU/RaBitQ-Library).**
+- 2026.03.30：RaBitQ优化补丁发布于Gitcode平台，实现等价索引优化和非等价索引优化。
 
+## 项目介绍
 
-*   A new blog - [Quantization in The Counterintuitive High-Dimensional Space](https://dev.to/gaoj0017/quantization-in-the-counterintuitive-high-dimensional-space-4feg) - to provide the key insights behind RaBitQ and its extension (corresponding to optimized approaches to binary quantization and scalar quantization respectively).
+RaBitQ是由NTU团队提出的面向高维向量近似最近邻搜索（ANN）的随机二值量化方法（SIGMOD 2024），能将D维向量量化为D位二进制字符串，并提供理论误差界。原始实现基于x8664 AVX2指令集。鲲鹏优化基于开源RaBitQ代码做侵入式修改，将其扩展至ARM64（AArch64）架构，引入FP16精度优化、NEON SIMD向量化、汇编级LUT加速、SOAR溢出向量分配、ML自适应nprobe等多项性能优化和功能增强。
 
----
+## 目录结构
 
-We are open to address any questions regarding the RaBitQ project. Please feel free to drop us an email at *jianyang.gao [at] ntu.edu.sg* and *c.long [at] ntu.edu.sg*.
+代码仓目录结构如下：
 
-## Organization
-*   The index phase of RaBitQ: `./data/rabitq.py`.
-*   The query phase of RaBitQ: 
-    *   `./src/ivf_rabitq.h` includes the general workflow.
-    *   `./src/space.h`      includes the bitwise implementation of RaBitQ.
-    *   `./src/fast_scan.h`  includes the SIMD-based implementation of RaBitQ.
-*   Comments are provided in these files.
-
-
-## Prerequisites
-* Eigen == 3.4.0
-    1. Download the Eigen library from https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz.
-    2. Unzip it and move the `Eigen` folder to `./src/`.
-
----
-## Reproduction
-
-1. Download and preprocess the datasets. Detailed instructions can be found in `./data/README.md`.
-
-2. Index the datasets. 
-    ```sh
-    ./script/index.sh
-    ```
-3. Test the queries of the datasets. The results are generated in `./results/`. 
-    ```sh
-    ./script/search.sh
-    ```
-
----
-
-Please cite our paper using the following bibtex if it is used in your research.
-
-```
-@article{10.1145/3654970,
-author = {Gao, Jianyang and Long, Cheng},
-title = {RaBitQ: Quantizing High-Dimensional Vectors with a Theoretical Error Bound for Approximate Nearest Neighbor Search},
-year = {2024},
-issue_date = {June 2024},
-publisher = {Association for Computing Machinery},
-address = {New York, NY, USA},
-volume = {2},
-number = {3},
-url = {https://doi.org/10.1145/3654970},
-doi = {10.1145/3654970},
-abstract = {Searching for approximate nearest neighbors (ANN) in the high-dimensional Euclidean space is a pivotal problem. Recently, with the help of fast SIMD-based implementations, Product Quantization (PQ) and its variants can often efficiently and accurately estimate the distances between the vectors and have achieved great success in the in-memory ANN search. Despite their empirical success, we note that these methods do not have a theoretical error bound and are observed to fail disastrously on some real-world datasets. Motivated by this, we propose a new randomized quantization method named RaBitQ, which quantizes D-dimensional vectors into D-bit strings. RaBitQ guarantees a sharp theoretical error bound and provides good empirical accuracy at the same time. In addition, we introduce efficient implementations of RaBitQ, supporting to estimate the distances with bitwise operations or SIMD-based operations. Extensive experiments on real-world datasets confirm that (1) our method outperforms PQ and its variants in terms of accuracy-efficiency trade-off by a clear margin and (2) its empirical performance is well-aligned with our theoretical analysis.},
-journal = {Proc. ACM Manag. Data},
-month = may,
-articleno = {167},
-numpages = {27},
-keywords = {Johnson-Lindenstrauss transformation, approximate nearest neighbor search, quantization}
-}
+```text
+rabitq/
+├─ 0001-rabitq-optimize-neq.patch         // 非等价索引优化补丁（全量优化）
+├─ 0002-rabitq-optimize-eqv.patch         // 等价索引优化补丁
 ```
 
-Please provide a reference of our paper if it helps in your system.
+使用补丁后RaBitQ完整的目录结构如下所示：
 
+```text
+RaBitQ/
+├─ src/                                    // C++源代码
+│   ├─ ivf_rabitq.h                       // IVF-RaBitQ主类（含ARM64 SOAR数据结构）
+│   ├─ ivf_rabitq_search.h                // ARM64优化的搜索实现（含SOAR/掩码扫描）
+│   ├─ index_io.h                         // ARM64索引I/O（含FP16转换）
+│   ├─ space.h                            // 位操作与距离计算（ARM NEON实现）
+│   ├─ fast_scan.h                        // SIMD快速扫描（自适应批量64/96）
+│   ├─ krl_table_lookup_fast_scan.s       // ARM64汇编LUT查找优化
+│   ├─ matrix.h                           // 矩阵数据结构
+│   ├─ utils.h                            // 工具函数（HDF5加载、时间测量等）
+│   ├─ test_result.h                      // 测试结果统计
+│   ├─ test_result.cpp                    // 测试结果实现
+│   ├─ index.cpp                          // 索引构建主程序
+│   ├─ search.cpp                         // 搜索主程序（多线程、NUMA绑核）
+│   └─ search_model.cpp                   // ML训练数据生成程序（仅非等价）
+├─ data/                                   // Python数据处理
+│   ├─ ivf.py                             // IVF聚类 + SOAR溢出分配
+│   ├─ rabitq.py                          // RaBitQ量化索引构建
+│   ├─ eval.py                            // LightGBM模型训练与导出（仅非等价）
+│   ├─ test.py                            // 向量归一化测试（仅非等价）
+│   └─ utils/
+│       └─ io.py                          // 数据I/O工具（fvecs/ivecs/HDF5）
+├─ script/                                 // 脚本
+│   ├─ index.sh                           // 索引构建脚本
+│   └─ search.sh                          // 搜索脚本
+├─ bin/                                    // 编译输出目录
+├─ results/                                // 搜索结果输出目录
+├─ datasets/                               // HDF5数据集目录
+├─ run.sh                                  // 一键运行脚本（统一入口）
+├─ LICENSE
+└─ README.md
 ```
-Jianyang Gao and Cheng Long. 2024. RaBitQ: Quantizing High-Dimensional Vectors with a Theoretical Error Bound for Approximate Nearest Neighbor Search. Proc. ACM Manag. Data 2, 3, Article 167 (June 2024), 27 pages. https://doi.org/10.1145/3654970
-```
+
+## 版本说明
+
+关于RaBitQ的版本更新情况请参见《RaBitQ版本说明书》。
+
+## 学习文档
 
 
+| 学习资源类别 | 学习资源名称                        | 学习资源简介                                                    |
+| ------ | ----------------------------- | --------------------------------------------------------- |
+| 文档     | [快速入门](docs/快速入门.md)         | 提供概述、前置条件、补丁应用方法和基本使用指导。                           |
+| 文档     | [特性指南](docs/特性指南.md)     | 详细说明等价索引优化和非等价索引优化的技术内容，包括SOAR算法、ML自适应nprobe机制及技术架构。      |
+| 文档     | [API参考](docs/API参考.md)     | 对比原始RaBitQ开源代码，详细列出Python脚本、C++命令行、IVFRN类和Shell脚本的全部接口变动。 |
+| 文档     | [用户指南](docs/用户指南.md) | 提供run.sh测试脚本的详细使用方法，包括参数说明、数据集配置、搜索参数、环境配置和使用示例。          |
 
 
+## 免责声明
 
+此代码仓计划参与RaBitQ开源组件，编码风格遵照原生开源软件，继承原生开源软件安全设计，不破坏原生开源软件设计及编码风格和方式，软件的任何漏洞与安全问题，均由相应的上游社区根据其漏洞和安全响应机制解决。请密切关注上游社区发布的通知和版本更新。鲲鹏计算社区对软件的漏洞及安全问题不承担任何责任。
+
+## License
+
+RaBitQ采用Apache License 2.0许可证授权。
+
+Copyright 2026 Huawei Technologies Co., Ltd.
+
+## 贡献声明
+
+欢迎大家为社区做贡献，如果使用过程中有任何问题/建议，或者需要反馈特性需求和bug报告，可以提交[Issues](zh-cn_topic_0000002535534673.md)联系我们，具体贡献方法可参考[这里](https://gitcode.com/boostkit/community/blob/master/docs/contributor/contributing.md)。同时也欢迎大家在[讨论专区](https://gitcode.com/boostkit/community/discussions)展开讨论交流。感谢您的支持。
+
+## 致谢
+
+RaBitQ由华为公司的下列部门联合贡献：
+
+- 鲲鹏计算Boostkit开发部
+
+感谢来自社区的每一个PR，欢迎贡献RaBitQ！
