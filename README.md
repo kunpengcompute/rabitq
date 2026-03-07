@@ -56,7 +56,7 @@ RaBitQ/
 
 ## 版本说明
 
-关于RaBitQ的版本更新情况请参见《RaBitQ版本说明书》。
+关于RaBitQ的版本更新情况请参见《[RaBitQ版本说明书](docs/版本说明书.md)》。
 
 ## 学习文档
 
