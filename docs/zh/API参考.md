@@ -6,19 +6,6 @@
 
 ## 等价索引优化接口变动
 
-### Python 脚本
-
-原始 RaBitQ 的 Python 脚本使用硬编码参数，优化后改为命令行参数驱动，并支持 HDF5 数据格式和多种度量类型。
-
-| 脚本 | 原始接口 | 优化后接口 |
-|------|---------|-----------|
-| `data/ivf.py` | 无命令行参数，硬编码 `dataset='sift'`, `K=4096`，从 fvecs 读取数据 | `python ivf.py <hdf5_path> <dataset> <K> <metric_type> <soar_lambda>`，支持 HDF5 输入、dot\_product 度量和向量归一化 |
-| `data/rabitq.py` | 无命令行参数，硬编码 `datasets=['sift']`, `C=4096`，从 fvecs 读取数据 | `python rabitq.py <hdf5_path> <dataset> <K> <metric_type> <soar_lambda>`，支持 HDF5 输入；当 `soar_lambda > 0` 时额外生成溢出向量的量化数据 |
-
-新增函数：
-- `ivf.py::assign_spilled_vec_fast(X, C, labels, lam, batch)` — SOAR 溢出向量分配
-- `ivf.py::test_ip(hdf5_path, dataset_name, K_value, metric_type, soar_lambda)` — 主入口函数
-
 ### C++ 命令行参数
 
 **`index` 程序：**
