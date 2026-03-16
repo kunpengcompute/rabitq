@@ -25,6 +25,8 @@
 #include <vector>
 #include <algorithm>
 #include <map>
+#include <limits>
+#include <stdexcept>
 #include "matrix.h"
 #include "utils.h"
 #include "space.h"
@@ -186,8 +188,25 @@ IVFRN<D, B>::IVFRN(const Matrix<float> &X, const Matrix<float> &_centroids, cons
     packed_code  = NULL;
 #endif
 
-    N = X.n;
-    C = _centroids.n;
+#ifdef __aarch64__
+    if (X.data == nullptr || _centroids.data == nullptr || dist_to_centroid.data == nullptr ||
+        _x0.data == nullptr || cluster_id.data == nullptr || binary.data == nullptr) {
+        throw std::invalid_argument("IVFRN constructor received null matrix data");
+    }
+    if (B % 64 != 0 || B < D) {
+        throw std::invalid_argument("Invalid IVFRN template parameters");
+    }
+    if (X.n > std::numeric_limits<uint32_t>::max() || _centroids.n > std::numeric_limits<uint32_t>::max()) {
+        throw std::overflow_error("IVFRN input size exceeds uint32_t range");
+    }
+    if (X.d != D || _centroids.d != B || dist_to_centroid.n != X.n || dist_to_centroid.d != 1 ||
+        _x0.n != X.n || _x0.d != 1 || cluster_id.n != X.n || cluster_id.d != 1 ||
+        binary.n != X.n || binary.d != B / 64) {
+        throw std::invalid_argument("IVFRN constructor received inconsistent matrix shapes");
+    }
+    if (_centroids.n == 0 || _centroids.n > numC) {
+        throw std::out_of_range("IVFRN cluster count is out of range");
+    }
 
     // check uint64_t
     assert(B % 64 == 0);

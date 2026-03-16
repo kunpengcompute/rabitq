@@ -456,18 +456,47 @@ ResultHeap IVFRN<D, B>::search_fast_scan(const Result* centroid_dist, float16_t*
 #define PD3 30
 template <uint32_t D, uint32_t B>
 ResultHeap IVFRN<D, B>::search(float* query, float* rd_query, uint32_t k, uint32_t nprobe, float distK) const{
+    if (query == nullptr || rd_query == nullptr) {
+        throw std::invalid_argument("query and rd_query must be non-null");
+    }
+    if (k == 0) {
+        throw std::invalid_argument("k must be greater than 0");
+    }
+    if (C == 0 || C > numC) {
+        throw std::runtime_error("IVFRN cluster count is invalid");
+    }
+    if (nprobe == 0 || nprobe > C) {
+        throw std::out_of_range("nprobe must be in [1, C]");
+    }
+    if (centroid == nullptr || centroid_f16 == nullptr || u == nullptr ||
+        start == nullptr || len == nullptr || id == nullptr) {
+        throw std::runtime_error("IVFRN search buffers are not initialized");
+    }
+#if defined(FAST_SCAN)
+    if (packed_code == nullptr || packed_start == nullptr || fac_f16_start == nullptr || data_f16 == nullptr) {
+        throw std::runtime_error("IVFRN FAST_SCAN buffers are not initialized");
+    }
+#elif defined(SCAN)
+    if (binary_code == nullptr || fac == nullptr || data == nullptr) {
+        throw std::runtime_error("IVFRN SCAN buffers are not initialized");
+    }
+#endif
+
     // ===========================================================================================================
     // Find out the nearest N_{probe} centroids to the query vector.
     Result centroid_dist[numC];
     constexpr uint32_t D_B_max = D > B ? D : B;
     float16_t* query_f16 = static_cast<float16_t*>(upper_bound_aligned_alloc(64, D_B_max * sizeof(float16_t)));
+    if (query_f16 == nullptr) {
+        throw std::runtime_error("Failed to allocate query buffer");
+    }
     quant_f16(rd_query, B, query_f16);
     for(int i = 0; i < C; i++) {
         __builtin_prefetch(centroid_f16 + B * (i + PD3), 0, 3);
         centroid_dist[i].first = krl_L2sqr_f16f32<B>(query_f16, centroid_f16 + B * i);
         centroid_dist[i].second = i;
     }
-    std::partial_sort(centroid_dist, centroid_dist + nprobe, centroid_dist + numC);
+    std::partial_sort(centroid_dist, centroid_dist + nprobe, centroid_dist + C);
     // ===========================================================================================================
 #if defined(FAST_SCAN)
     quant_f16(query, D, query_f16);

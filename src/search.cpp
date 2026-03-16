@@ -1,6 +1,7 @@
 #define EIGEN_DONT_PARALLELIZE
 #define USE_AVX2
 #include <iostream>
+#include <cstdio>
 #include <fstream>
 #include <ctime>
 #include <cmath>
@@ -239,6 +240,15 @@ int main(int argc, char * argv[]) {
         }
     }
     
+    if (topk <= 0) {
+        std::cerr << "topk must be positive" << std::endl;
+        return 1;
+    }
+    if (pred_nprobe != 0 || threshold != 0 || soar_lambda != 0) {
+        std::cerr << "Predictive nprobe and SOAR are not supported in this branch" << std::endl;
+        return 1;
+    }
+
     // ================================================================================================================================
     // Data Files
     // char query_path[256] = "";
@@ -260,21 +270,29 @@ int main(int argc, char * argv[]) {
     int32_t nb_, nq_, dim_, gt_closest;
 
     loadHDF(data_path, nb_, nq_, dim_, gt_closest, xb_, xq_, gt_ids_, gt_dists_, metric_type);
+    delete[] xb_;
+    xb_ = nullptr;
+    delete[] gt_dists_;
+    gt_dists_ = nullptr;
 
     char transformation_path[256] = "";
-    sprintf(transformation_path, "%sP_C%d_B%d.fvecs", source, numC, BB);
+    snprintf(transformation_path, sizeof(transformation_path), "%sP_C%d_B%d.fvecs", source, numC, BB);
     Matrix<float> Q(xq_, nq_, dim_, false);
     Matrix<int64_t> G(gt_ids_, nq_, gt_closest, false);
+    delete[] xq_;
+    xq_ = nullptr;
+    delete[] gt_ids_;
+    gt_ids_ = nullptr;
 
     char index_path[256] = "";
-    sprintf(index_path, "%sivfrabitq_%s_%d_B%d.index", source, scan_type, numC, BB);
+    snprintf(index_path, sizeof(index_path), "%sivfrabitq_%s_%d_B%d.index", source, scan_type, numC, BB);
     std::cerr << index_path << std::endl;
 #if defined(FAST_SCAN)
     char result_file_view[256] = "";
-    sprintf(result_file_view, "%s%s_ivfrabitq%d_B%d_fast_scan.log", result_path, dataset, numC, BB);
+    snprintf(result_file_view, sizeof(result_file_view), "%s%s_ivfrabitq%d_B%d_fast_scan.log", result_path, dataset, numC, BB);
 #elif defined(SCAN)
     char result_file_view[256] = "";
-    sprintf(result_file_view, "%s%s_ivfrabitq%d_B%d_scan.log", result_path, dataset, numC, BB);
+    snprintf(result_file_view, sizeof(result_file_view), "%s%s_ivfrabitq%d_B%d_scan.log", result_path, dataset, numC, BB);
 #endif    // char probe_path[256] = "";
     // sprintf(probe_path, "data/%s/probe_info1.fvecs", dataset);
 
@@ -283,11 +301,17 @@ int main(int argc, char * argv[]) {
     std::cerr << "Loading Succeed!" << std::endl;
     // ================================================================================================================================
 
-
-    freopen(result_file_view,"a",stdout);
+    if (freopen(result_file_view, "a", stdout) == nullptr) {
+        std::perror("freopen");
+        return 1;
+    }
     
     IVFRN<DIM, BB> ivf;
     ivf.load(index_path);
+    if (nprobe <= 0 || static_cast<uint32_t>(nprobe) > ivf.C) {
+        std::cerr << "nprobe must be in [1, " << ivf.C << "]" << std::endl;
+        return 1;
+    }
 
     float sys_t, usr_t, usr_t_sum = 0, total_time=0, search_time=0;
     struct rusage run_start, run_end;
@@ -359,10 +383,12 @@ int main(int argc, char * argv[]) {
                 pthread_create(&threads[i], nullptr, search_single_thread, &params[i]);
                 
                 /* 线程绑核 */
-                cpu_set_t cpuset;
-                CPU_ZERO(&cpuset);
-                CPU_SET(cpu_ids[i], &cpuset);
-                pthread_setaffinity_np(threads[i], sizeof(cpu_set_t), &cpuset);
+                if (i < static_cast<int>(cpu_ids.size())) {
+                    cpu_set_t cpuset;
+                    CPU_ZERO(&cpuset);
+                    CPU_SET(cpu_ids[i], &cpuset);
+                    pthread_setaffinity_np(threads[i], sizeof(cpu_set_t), &cpuset);
+                }
             }
             /* 同步启动所有线程 */
             sleep(1); /* 确保所有线程已启动 */
