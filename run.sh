@@ -2,10 +2,10 @@
 
 # 参数检查
 if [[ $# -lt 1 || $# -gt 3 ]]; then
-  echo "Usage: $0 <dataset> [fastscan|scan] [genarate_data|index|search]"
+  echo "Usage: $0 <dataset> [fastscan|scan] [generate|index|search]"
   echo "Datasets: sift | deep | glove | fashion | gist"
   echo "Modes: fastscan (default) | scan"
-  echo "Stages: genarate_data | index | search (default: all stages)"
+  echo "Stages: generate | index | search (default: all stages)"
   exit 1
 fi
 
@@ -100,12 +100,8 @@ echo "================="
 # 生成数据
 generate() {
     echo "=== 开始生成数据 ==="
-    cd ./data || exit 1
-    # mkdir -p sift glove gist deep fashion
-    numactl -N 0 -m 0 python3 ivf.py $HDF5_PATH $DATASET_NAME $K_VALUE $METRIC_TYPE $SOAR_LAMBDA
-    numactl -N 0 -m 0 python3 rabitq.py $HDF5_PATH $DATASET_NAME $K_VALUE $METRIC_TYPE $SOAR_LAMBDA
-    
-    cd ..
+    python3 ./data/ivf.py "$HDF5_PATH" "$DATASET_NAME" "$K_VALUE" "$METRIC_TYPE" "$SOAR_LAMBDA"
+    python3 ./data/rabitq.py "$HDF5_PATH" "$DATASET_NAME" "$K_VALUE" "$METRIC_TYPE" "$SOAR_LAMBDA"
     echo "=== 数据生成完成 ==="
 }
 
@@ -129,7 +125,7 @@ index() {
           -D BB=${B} -D DIM=${D} -D numC=${K_VALUE} -D B_QUERY=4 ${EXTRA_DEFS}
     fi
     
-    numactl -N 0 -m 0 ./bin/index_${DATASET_NAME} -d $DATASET_NAME -s "$source/$DATASET_NAME/" -p "$HDF5_PATH" -m "$METRIC_TYPE" -a "$SOAR_LAMBDA"
+    ./bin/index_${DATASET_NAME} -d "$DATASET_NAME" -s "$source/$DATASET_NAME/" -p "$HDF5_PATH" -m "$METRIC_TYPE" -a "$SOAR_LAMBDA"
     
     echo "=== 索引构建完成 ==="
 }
@@ -166,31 +162,10 @@ search() {
 
     #TCMALLOC_MEMFS_MALLOC_PATH=/dev/hugepages/tcmalloc 
     export MALLOC_CONF="narenas:1"
-    
-    numactl -N 0 -m 0 ./bin/search_${DATASET_NAME} \
-        -d ${DATASET_NAME} -r ${res} -k ${k} -n ${NPROBE} \
-        -s "$source/$DATASET_NAME/" -p "$HDF5_PATH" -m "$METRIC_TYPE" -t "$THRESHOLD" -e "$PRED_NPROBE" -a "$SOAR_LAMBDA" \
-         &
-   
-    # TCMALLOC_MEMFS_MALLOC_PATH=/dev/hugepages/tcmalloc \
-    numactl -N 1 -m 1 ./bin/search_${DATASET_NAME} \
-        -d ${DATASET_NAME} -r ${res} -k ${k} -n ${NPROBE} \
-        -s "$source/$DATASET_NAME/" -p "$HDF5_PATH" -m "$METRIC_TYPE" -t "$THRESHOLD" -e "$PRED_NPROBE" -a "$SOAR_LAMBDA" \
-        &
-    
-    # TCMALLOC_MEMFS_MALLOC_PATH=/dev/hugepages/tcmalloc \
-    numactl -N 2 -m 2 ./bin/search_${DATASET_NAME} \
-        -d ${DATASET_NAME} -r ${res} -k ${k} -n ${NPROBE} \
-        -s "$source/$DATASET_NAME/" -p "$HDF5_PATH" -m "$METRIC_TYPE" -t "$THRESHOLD" -e "$PRED_NPROBE" -a "$SOAR_LAMBDA" \
-        &
-    
-    # TCMALLOC_MEMFS_MALLOC_PATH=/dev/hugepages/tcmalloc \
-    numactl -N 3 -m 3 ./bin/search_${DATASET_NAME} \
-        -d ${DATASET_NAME} -r ${res} -k ${k} -n ${NPROBE} \
-        -s "$source/$DATASET_NAME/" -p "$HDF5_PATH" -m "$METRIC_TYPE" -t "$THRESHOLD" -e "$PRED_NPROBE" -a "$SOAR_LAMBDA" \
-        &
-    
-    wait
+
+    ./bin/search_${DATASET_NAME} \
+        -d "${DATASET_NAME}" -r "${res}" -k "${k}" -n "${NPROBE}" \
+        -s "$source/$DATASET_NAME/" -p "$HDF5_PATH" -m "$METRIC_TYPE" -t "$THRESHOLD" -e "$PRED_NPROBE" -a "$SOAR_LAMBDA"
     echo "=== 搜索完成 ==="
 }
 

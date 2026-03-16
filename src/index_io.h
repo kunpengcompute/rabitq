@@ -137,6 +137,10 @@ void IVFRN<D, B>::compute_factor() {
 // load impl
 template <uint32_t D, uint32_t B>
 void IVFRN<D, B>::load(char * filename){
+    if (filename == nullptr || filename[0] == '\0') {
+        throw std::invalid_argument("filename must not be null or empty");
+    }
+
     std::ifstream input(filename, std::ios::binary);
 
     if (!input.is_open())
@@ -148,6 +152,13 @@ void IVFRN<D, B>::load(char * filename){
     input.read((char *) &d, sizeof(uint32_t)); 
     input.read((char *) &C, sizeof(uint32_t));
     input.read((char *) &b, sizeof(uint32_t));
+
+    if (C == 0 || C > numC) {
+        throw std::runtime_error("Invalid cluster count in index file");
+    }
+    if (d != D || b != B) {
+        throw std::runtime_error("Index header does not match template parameters");
+    }
 
     assert(d == D);
     assert(b == B);
@@ -222,7 +233,14 @@ void IVFRN<D, B>::load(char * filename){
 // Save and Load Functions
 template <uint32_t D, uint32_t B>
 void IVFRN<D, B>::save(char * filename){
+    if (filename == nullptr || filename[0] == '\0') {
+        throw std::invalid_argument("filename must not be null or empty");
+    }
+
     std::ofstream output(filename, std::ios::binary);
+    if (!output.is_open()) {
+        throw std::runtime_error("Cannot open file");
+    }
 
     uint32_t d = D;
     uint32_t b = B;
