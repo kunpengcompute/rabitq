@@ -671,8 +671,8 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 +
 diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=result/' ./RaBitQ/run.sh ./rabitq_neq/run.sh
 --- ./RaBitQ/run.sh	1970-01-01 08:00:00.000000000 +0800
-+++ ./rabitq_neq/run.sh	2026-02-27 15:32:06.774696700 +0800
-@@ -0,0 +1,274 @@
++++ ./rabitq_neq/run.sh	2026-03-16 09:58:13.427494900 +0800
+@@ -0,0 +1,259 @@
 +#!/bin/bash
 +
 +# 参数检查
@@ -856,21 +856,6 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 +        -d ${DATASET_NAME} -r ${res} -k ${k} -n ${NPROBE} \
 +        -s "$source/$DATASET_NAME/" -p "$HDF5_PATH" -m "$METRIC_TYPE" -t "$THRESHOLD" -e "$PRED_NPROBE" -a "$SOAR_LAMBDA" \
 +         &
-+   
-+    # numactl -N 1 -m 1 ./bin/search_${DATASET_NAME} \
-+    #     -d ${DATASET_NAME} -r ${res} -k ${k} -n ${NPROBE} \
-+    #     -s "$source/$DATASET_NAME/" -p "$HDF5_PATH" -m "$METRIC_TYPE" -t "$THRESHOLD" -e "$PRED_NPROBE" -a "$SOAR_LAMBDA" \
-+    #     &
-+    
-+    # numactl -N 2 -m 2 ./bin/search_${DATASET_NAME} \
-+    #     -d ${DATASET_NAME} -r ${res} -k ${k} -n ${NPROBE} \
-+    #     -s "$source/$DATASET_NAME/" -p "$HDF5_PATH" -m "$METRIC_TYPE" -t "$THRESHOLD" -e "$PRED_NPROBE" -a "$SOAR_LAMBDA" \
-+    #     &
-+    
-+    # numactl -N 3 -m 3 ./bin/search_${DATASET_NAME} \
-+    #     -d ${DATASET_NAME} -r ${res} -k ${k} -n ${NPROBE} \
-+    #     -s "$source/$DATASET_NAME/" -p "$HDF5_PATH" -m "$METRIC_TYPE" -t "$THRESHOLD" -e "$PRED_NPROBE" -a "$SOAR_LAMBDA" \
-+    #     &
 +    
 +    wait
 +    echo "=== 搜索完成 ==="
@@ -1472,7 +1457,7 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 +
 diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=result/' ./RaBitQ/src/index.cpp ./rabitq_neq/src/index.cpp
 --- ./RaBitQ/src/index.cpp	2026-02-25 14:30:05.559342200 +0800
-+++ ./rabitq_neq/src/index.cpp	2026-02-10 20:38:27.583584900 +0800
++++ ./rabitq_neq/src/index.cpp	2026-03-16 11:15:10.961177400 +0800
 @@ -1,3 +1,18 @@
 +/*
 +   Copyright 2026 Huawei Technologies Co., Ltd.
@@ -1571,30 +1556,45 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
      char index_path[256] = "";
      char centroid_path[256] = "";
      char x0_path[256] = "";
-@@ -58,9 +110,14 @@
+@@ -58,31 +110,65 @@
      char cluster_id_path[256] = "";
      char binary_path[256] = "";
  
 -    sprintf(data_path, "%s%s_base.fvecs", source, dataset);
 -    Matrix<float> X(data_path);
 -    
+-    sprintf(centroid_path, "%sRandCentroid_C%d_B%d.fvecs", source, numC, BB);
 +    float *xb_;
 +    int32_t nb_, dim_;
 +
 +    loadHDFBase(data_path, nb_, dim_, xb_, metric_type);
 +
 +    Matrix<float> X(xb_, nb_, dim_, false);
++    delete[] xb_;
++    xb_ = nullptr;
 +
 +    std::cerr << "BB= " <<BB<< std::endl;
-     sprintf(centroid_path, "%sRandCentroid_C%d_B%d.fvecs", source, numC, BB);
++    snprintf(centroid_path, sizeof(centroid_path), "%sRandCentroid_C%d_B%d.fvecs", source, numC, BB);
      Matrix<float> C(centroid_path);
  
-@@ -76,13 +133,40 @@
-     sprintf(binary_path, "%sRandNet_C%d_B%d.Ivecs", source, numC, BB);
+-    sprintf(x0_path, "%sx0_C%d_B%d.fvecs", source, numC, BB);
++    snprintf(x0_path, sizeof(x0_path), "%sx0_C%d_B%d.fvecs", source, numC, BB);
+     Matrix<float> x0(x0_path);
+ 
+-    sprintf(dist_to_centroid_path, "%s%s_dist_to_centroid_%d.fvecs", source, dataset, numC);
++    snprintf(dist_to_centroid_path, sizeof(dist_to_centroid_path), "%s%s_dist_to_centroid_%d.fvecs", source, dataset, numC);
+     Matrix<float> dist_to_centroid(dist_to_centroid_path);
+     
+-    sprintf(cluster_id_path, "%s%s_cluster_id_%d.ivecs", source, dataset, numC);
++    snprintf(cluster_id_path, sizeof(cluster_id_path), "%s%s_cluster_id_%d.ivecs", source, dataset, numC);
+     Matrix<uint32_t> cluster_id(cluster_id_path);
+     
+-    sprintf(binary_path, "%sRandNet_C%d_B%d.Ivecs", source, numC, BB);
++    snprintf(binary_path, sizeof(binary_path), "%sRandNet_C%d_B%d.Ivecs", source, numC, BB);
      Matrix<uint64_t> binary(binary_path);
  
 -    sprintf(index_path, "%sivfrabitq%d_B%d.index", source, numC, BB);
-+    sprintf(index_path, "%sivfrabitq_%s_%d_B%d.index", source, scan_type, numC, BB);
++    snprintf(index_path, sizeof(index_path), "%sivfrabitq_%s_%d_B%d.index", source, scan_type, numC, BB);
      std::cerr << "Loading Succeed!" << std::endl << std::endl;
      // ==============================================================================================================
  
@@ -1609,19 +1609,19 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 +    } else {
 +    #ifdef __aarch64__
 +        char x0_spilled_path[256] = "";
-+        sprintf(x0_spilled_path, "%sx0_spilled_C%d_B%d.fvecs", source, numC, BB);
++        snprintf(x0_spilled_path, sizeof(x0_spilled_path), "%sx0_spilled_C%d_B%d.fvecs", source, numC, BB);
 +        Matrix<float> x0_spilled(x0_spilled_path);
 +        
 +        char dist_to_spilled_labels_path[256] = "";
-+        sprintf(dist_to_spilled_labels_path, "%s%s_dist_to_spilled_labels_%d.fvecs", source, dataset, numC);
++        snprintf(dist_to_spilled_labels_path, sizeof(dist_to_spilled_labels_path), "%s%s_dist_to_spilled_labels_%d.fvecs", source, dataset, numC);
 +        Matrix<float> dist_to_spilled_labels(dist_to_spilled_labels_path);
 +        
 +        char binary_spilled_path[256] = "";
-+        sprintf(binary_spilled_path, "%sRandNet_spilled_C%d_B%d.Ivecs", source, numC, BB);
++        snprintf(binary_spilled_path, sizeof(binary_spilled_path), "%sRandNet_spilled_C%d_B%d.Ivecs", source, numC, BB);
 +        Matrix<uint64_t> binary_spilled(binary_spilled_path);
 +
 +        char spilled_labels_path[256] = "";
-+        sprintf(spilled_labels_path, "%s%s_spilled_labels_%d.ivecs", source, dataset, numC);
++        snprintf(spilled_labels_path, sizeof(spilled_labels_path), "%s%s_spilled_labels_%d.ivecs", source, dataset, numC);
 +        Matrix<uint32_t> spilled_labels(spilled_labels_path);
 +
 +        std::cerr << "start to init\n";
@@ -1639,8 +1639,8 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 \ No newline at end of file
 diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=result/' ./RaBitQ/src/index_io.h ./rabitq_neq/src/index_io.h
 --- ./RaBitQ/src/index_io.h	1970-01-01 08:00:00.000000000 +0800
-+++ ./rabitq_neq/src/index_io.h	2026-02-12 21:11:47.119982400 +0800
-@@ -0,0 +1,406 @@
++++ ./rabitq_neq/src/index_io.h	2026-03-16 14:13:09.918623300 +0800
+@@ -0,0 +1,415 @@
 +#pragma once
 +#include "ivf_rabitq.h"
 +
@@ -1858,6 +1858,9 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 +// =================================================== load function ===========================================================================
 +template <uint32_t D, uint32_t B>
 +void IVFRN<D, B>::load(char * filename){
++    if (filename == nullptr || filename[0] == '\0') {
++        throw std::invalid_argument("load: filename must not be null or empty");
++    }
 +    std::ifstream input(filename, std::ios::binary);
 +
 +    if (!input.is_open())
@@ -2012,7 +2015,13 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 +//
 +template <uint32_t D, uint32_t B>
 +void IVFRN<D, B>::save(char * filename){
++    if (filename == nullptr || filename[0] == '\0') {
++        throw std::invalid_argument("save: filename must not be null or empty");
++    }
 +    std::ofstream output(filename, std::ios::binary);
++    if (!output.is_open()) {
++        throw std::runtime_error("save: failed to open file");
++    }
 +
 +    uint32_t d = D;
 +    uint32_t b = B;
@@ -2050,7 +2059,7 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 \ No newline at end of file
 diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=result/' ./RaBitQ/src/ivf_rabitq.h ./rabitq_neq/src/ivf_rabitq.h
 --- ./RaBitQ/src/ivf_rabitq.h	2026-02-25 14:30:05.559342200 +0800
-+++ ./rabitq_neq/src/ivf_rabitq.h	2026-02-24 17:05:14.703994900 +0800
++++ ./rabitq_neq/src/ivf_rabitq.h	2026-03-16 12:16:33.601771800 +0800
 @@ -1,3 +1,18 @@
 +/*
 +   Copyright 2026 Huawei Technologies Co., Ltd.
@@ -2150,7 +2159,7 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
      static Space<D,B> space;
  
      uint32_t N;                       // the number of data vectors 
-@@ -45,32 +116,328 @@
+@@ -45,32 +116,376 @@
      uint64_t * binary_code;           // (B / 64) * N of 64-bit uint64_t
      uint8_t * packed_code;            // packed code with the batch size of 32 vectors
  
@@ -2321,8 +2330,56 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 +
 +    use_soar = false;
 +
++    if (X.data == nullptr || _centroids.data == nullptr || dist_to_centroid.data == nullptr ||
++        _x0.data == nullptr || cluster_id.data == nullptr || binary.data == nullptr) {
++        throw std::invalid_argument("IVFRN: input matrix data must not be null");
++    }
++    if (X.d != D || _centroids.d != B || binary.n != X.n || binary.d != (B / 64)) {
++        throw std::invalid_argument("IVFRN: input matrix dimensions do not match index parameters");
++    }
++    if (dist_to_centroid.n * dist_to_centroid.d != X.n ||
++        _x0.n * _x0.d != X.n ||
++        cluster_id.n * cluster_id.d != X.n) {
++        throw std::invalid_argument("IVFRN: input matrix sizes are inconsistent");
++    }
++
++    const bool has_any_soar_input = dist_to_spilled_labels != nullptr || _x0_spilled != nullptr ||
++                                    spilled_labels != nullptr || binary_spilled != nullptr;
++    const bool has_all_soar_input = dist_to_spilled_labels != nullptr && _x0_spilled != nullptr &&
++                                    spilled_labels != nullptr && binary_spilled != nullptr;
++    if (has_any_soar_input && !has_all_soar_input) {
++        throw std::invalid_argument("IVFRN: SOAR inputs must be provided together");
++    }
++    if (has_all_soar_input) {
++        if (dist_to_spilled_labels->data == nullptr || _x0_spilled->data == nullptr ||
++            spilled_labels->data == nullptr || binary_spilled->data == nullptr) {
++            throw std::invalid_argument("IVFRN: SOAR input matrix data must not be null");
++        }
++        if (dist_to_spilled_labels->n * dist_to_spilled_labels->d != X.n ||
++            _x0_spilled->n * _x0_spilled->d != X.n ||
++            spilled_labels->n * spilled_labels->d != X.n ||
++            binary_spilled->n != X.n || binary_spilled->d != (B / 64)) {
++            throw std::invalid_argument("IVFRN: SOAR input matrix sizes are inconsistent");
++        }
++    }
++
 +    N = X.n;
 +    C = _centroids.n;
++    if (C == 0 || C > numC) {
++        throw std::invalid_argument("IVFRN: invalid cluster count");
++    }
++    for (size_t i = 0; i < X.n; ++i) {
++        if (cluster_id.data[i] >= C) {
++            throw std::out_of_range("IVFRN: cluster id out of range");
++        }
++    }
++    if (has_all_soar_input) {
++        for (size_t i = 0; i < X.n; ++i) {
++            if (spilled_labels->data[i] >= C) {
++                throw std::out_of_range("IVFRN: spilled label out of range");
++            }
++        }
++    }
 +
 +    // check uint64_t
 +    assert(B % 64 == 0);
@@ -2493,7 +2550,7 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
  // scan impl
  template <uint32_t D, uint32_t B>
  void IVFRN<D, B>::scan(ResultHeap &KNNs, float &distK, uint32_t k, \
-@@ -276,9 +643,6 @@
+@@ -276,9 +691,6 @@
      return KNNs;
  }
  
@@ -2503,7 +2560,7 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
  // ==============================================================================================================================
  // Save and Load Functions
  template <uint32_t D, uint32_t B>
-@@ -385,18 +749,6 @@
+@@ -385,18 +797,6 @@
  }
  
  
@@ -2522,7 +2579,7 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
  template <uint32_t D, uint32_t B>
  IVFRN<D, B>::IVFRN(const Matrix<float> &X, const Matrix<float> &_centroids, const Matrix<float> &dist_to_centroid, 
              const Matrix<float> &_x0, const Matrix<uint32_t> &cluster_id, const Matrix<uint64_t> &binary){
-@@ -449,18 +801,4 @@
+@@ -449,18 +849,4 @@
          binary_code_ptr += B / 64;
      }
  }
@@ -2545,8 +2602,8 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 \ No newline at end of file
 diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=result/' ./RaBitQ/src/ivf_rabitq_search.h ./rabitq_neq/src/ivf_rabitq_search.h
 --- ./RaBitQ/src/ivf_rabitq_search.h	1970-01-01 08:00:00.000000000 +0800
-+++ ./rabitq_neq/src/ivf_rabitq_search.h	2026-02-12 11:46:48.278657500 +0800
-@@ -0,0 +1,676 @@
++++ ./rabitq_neq/src/ivf_rabitq_search.h	2026-03-16 12:16:43.395434700 +0800
+@@ -0,0 +1,720 @@
 +/*
 +   Copyright 2026 Huawei Technologies Co., Ltd.
 +
@@ -3151,6 +3208,47 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 +template <uint32_t D, uint32_t B>
 +ResultHeap IVFRN<D, B>::search(float* query, float* rd_query, uint32_t k, uint32_t nprobe,
 +                            float soar_lambda, float threshold, int pred_nprobe, PredictFunc pred, float distK) const{
++    if (query == nullptr || rd_query == nullptr) {
++        throw std::invalid_argument("search: query pointers must not be null");
++    }
++    if (k == 0) {
++        throw std::invalid_argument("search: k must be greater than 0");
++    }
++    if (C == 0 || C > numC || centroid == nullptr || centroid_f16 == nullptr ||
++        u == nullptr || start == nullptr || len == nullptr || id == nullptr) {
++        throw std::runtime_error("search: index is not initialized");
++    }
++    if (nprobe == 0 || nprobe > C) {
++        throw std::invalid_argument("search: nprobe is out of range");
++    }
++    if (soar_lambda > 0 && !use_soar) {
++        throw std::invalid_argument("search: SOAR is not enabled for this index");
++    }
++    if (pred_nprobe > 0) {
++        if (pred == nullptr) {
++            throw std::invalid_argument("search: pred callback must not be null when pred_nprobe is enabled");
++        }
++        if (pred_nprobe > static_cast<int>(C)) {
++            throw std::invalid_argument("search: pred_nprobe is out of range");
++        }
++    }
++#if defined(FAST_SCAN)
++    if (centroid_f16 == nullptr || data_f16 == nullptr || packed_code == nullptr || fac_f16_start == nullptr) {
++        throw std::runtime_error("search: FAST_SCAN buffers are not initialized");
++    }
++    if (use_soar && (start_spilled == nullptr || len_spilled == nullptr || id_spilled == nullptr ||
++                     data_f16_spilled == nullptr || packed_code_spilled == nullptr || fac_f16_start_spilled == nullptr)) {
++        throw std::runtime_error("search: SOAR buffers are not initialized");
++    }
++#elif defined(SCAN)
++    if (binary_code == nullptr || fac == nullptr || data == nullptr) {
++        throw std::runtime_error("search: SCAN buffers are not initialized");
++    }
++    if (use_soar && (start_spilled == nullptr || len_spilled == nullptr || id_spilled == nullptr ||
++                     binary_code_spilled == nullptr || fac_spilled == nullptr || data_spilled == nullptr)) {
++        throw std::runtime_error("search: SOAR buffers are not initialized");
++    }
++#endif
 +    //// model
 +    if (pred_nprobe > 0) {
 +        vector<Entry> fdata(4);
@@ -3179,13 +3277,16 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 +    Result centroid_dist[numC];
 +    constexpr uint32_t D_B_max = D > B ? D : B;
 +    float16_t* query_f16 = static_cast<float16_t*>(upper_bound_aligned_alloc(64, D_B_max * sizeof(float16_t)));
++    if (query_f16 == nullptr) {
++        throw std::runtime_error("search: failed to allocate query buffer");
++    }
 +    quant_f16(rd_query, B, query_f16);
 +    for(int i = 0; i < C; i++) {
 +        __builtin_prefetch(centroid_f16 + B * (i + PD3), 0, 3);
 +        centroid_dist[i].first = krl_L2sqr_f16f32<B>(query_f16, centroid_f16 + B * i);
 +        centroid_dist[i].second = i;
 +    }
-+    std::partial_sort(centroid_dist, centroid_dist + nprobe, centroid_dist + numC);
++    std::partial_sort(centroid_dist, centroid_dist + nprobe, centroid_dist + C);
 +    // ===========================================================================================================
 +#if defined(FAST_SCAN)
 +    quant_f16(query, D, query_f16);
@@ -3505,8 +3606,13 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 +    .p2align 4,,11
 diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=result/' ./RaBitQ/src/matrix.h ./rabitq_neq/src/matrix.h
 --- ./RaBitQ/src/matrix.h	2026-02-25 14:30:05.559342200 +0800
-+++ ./rabitq_neq/src/matrix.h	2026-02-10 20:38:27.774373600 +0800
-@@ -12,8 +12,7 @@
++++ ./rabitq_neq/src/matrix.h	2026-03-16 11:53:21.440401100 +0800
+@@ -8,12 +8,12 @@
+ #include <cmath>
+ #include <random>
+ #include <cstring>
++#include <stdexcept>
+ #include <assert.h>
  #include <Eigen/Dense>
  
  template <typename T>
@@ -3516,7 +3622,7 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
  private:
  
  public:
-@@ -31,6 +30,15 @@
+@@ -31,6 +31,15 @@
      Matrix(const Matrix<T> &X, const size_t id); // row
      Matrix(char * data_file_path); // IO
      Matrix(size_t n); // ID
@@ -3532,7 +3638,7 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
  
      // Deconstruction
      ~Matrix(){
-@@ -180,9 +188,9 @@
+@@ -180,9 +189,9 @@
          std::cout << "(";
          for(size_t j=0;j<d;j++){
              std::cout << data[i * d + j] << (j == d-1 ? ")":", ");
@@ -3544,7 +3650,22 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
  }
  
  template <typename T>
-@@ -304,6 +312,4 @@
+@@ -291,8 +300,12 @@
+ 
+     size_t size = sizeof(T);
+     fread(&size, sizeof(size_t), 1, fp);
+-    data = new T [n * d];
+-    fread(data, size,  n * d, fp);
++    if (d != 0 && n > static_cast<size_t>(-1) / d) {
++        throw std::overflow_error("deserialize: matrix size overflow");
++    }
++    size_t count = n * d;
++    data = new T [count];
++    fread(data, size, count, fp);
+ }
+ 
+ double normalize(float *x, unsigned D){
+@@ -304,6 +317,4 @@
      for(int i=0;i<D;i++)x[i]=v(i);
      return norm;
  }
@@ -3555,8 +3676,8 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 \ No newline at end of file
 diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=result/' ./RaBitQ/src/search.cpp ./rabitq_neq/src/search.cpp
 --- ./RaBitQ/src/search.cpp	2026-02-25 14:30:05.559342200 +0800
-+++ ./rabitq_neq/src/search.cpp	2026-02-12 14:57:12.076927100 +0800
-@@ -2,30 +2,40 @@
++++ ./rabitq_neq/src/search.cpp	2026-03-16 11:15:16.308791300 +0800
+@@ -2,30 +2,41 @@
  #define USE_AVX2
  #include <iostream>
  #include <fstream>
@@ -3566,6 +3687,7 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 -#include <matrix.h>
 -#include <utils.h>
 -#include <ivf_rabitq.h>
++#include <cstdio>
 +#include "matrix.h"
 +#include "utils.h"
 +#include "ivf_rabitq.h"
@@ -3605,7 +3727,7 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
      // ========================================================================
      
      for(auto nprobe:nprobes){
-@@ -33,37 +43,182 @@
+@@ -33,37 +44,182 @@
          float total_ratio=0;
          int correct = 0;
  
@@ -3794,7 +3916,7 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
  
      const struct option longopts[] ={
          // General Parameter
-@@ -71,11 +226,15 @@
+@@ -71,11 +227,15 @@
  
          // Query Parameter 
          {"K",                           required_argument, 0, 'k'},
@@ -3810,7 +3932,7 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
      };
  
      int ind;
-@@ -85,47 +244,115 @@
+@@ -85,76 +245,318 @@
      char dataset[256] = "";
      char source[256] = "";
      char result_path[256] = "";
@@ -3935,22 +4057,34 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 +    int32_t nb_, nq_, dim_, gt_closest;
 +
 +    loadHDF(data_path, nb_, nq_, dim_, gt_closest, xb_, xq_, gt_ids_, gt_dists_, metric_type);
++    delete[] xb_;
++    xb_ = nullptr;
++    delete[] gt_dists_;
++    gt_dists_ = nullptr;
 +
      char transformation_path[256] = "";
-     sprintf(transformation_path, "%sP_C%d_B%d.fvecs", source, numC, BB);
+-    sprintf(transformation_path, "%sP_C%d_B%d.fvecs", source, numC, BB);
 -    Matrix<float> P(transformation_path);
++    snprintf(transformation_path, sizeof(transformation_path), "%sP_C%d_B%d.fvecs", source, numC, BB);
 +    Matrix<float> Q(xq_, nq_, dim_, false);
 +    Matrix<int64_t> G(gt_ids_, nq_, gt_closest, false);
++    delete[] xq_;
++    xq_ = nullptr;
++    delete[] gt_ids_;
++    gt_ids_ = nullptr;
  
      char index_path[256] = "";
 -    sprintf(index_path, "%sivfrabitq%d_B%d.index", source, numC, BB);
-+    sprintf(index_path, "%sivfrabitq_%s_%d_B%d.index", source, scan_type, numC, BB);
++    snprintf(index_path, sizeof(index_path), "%sivfrabitq_%s_%d_B%d.index", source, scan_type, numC, BB);
      std::cerr << index_path << std::endl;
  #if defined(FAST_SCAN)
      char result_file_view[256] = "";
-@@ -134,6 +361,11 @@
+-    sprintf(result_file_view, "%s%s_ivfrabitq%d_B%d_fast_scan.log", result_path, dataset, numC, BB);
++    snprintf(result_file_view, sizeof(result_file_view), "%s%s_ivfrabitq%d_B%d_fast_scan.log", result_path, dataset, numC, BB);
+ #elif defined(SCAN)
      char result_file_view[256] = "";
-     sprintf(result_file_view, "%s%s_ivfrabitq%d_B%d_scan.log", result_path, dataset, numC, BB);
+-    sprintf(result_file_view, "%s%s_ivfrabitq%d_B%d_scan.log", result_path, dataset, numC, BB);
++    snprintf(result_file_view, sizeof(result_file_view), "%s%s_ivfrabitq%d_B%d_scan.log", result_path, dataset, numC, BB);
  #endif
 +    // char probe_path[256] = "";
 +    // sprintf(probe_path, "data/%s/probe_info1.fvecs", dataset);
@@ -3960,8 +4094,12 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
      std::cerr << "Loading Succeed!" << std::endl;
      // ================================================================================================================================
  
-@@ -141,20 +373,178 @@
-     freopen(result_file_view,"a",stdout);
+ 
+-    freopen(result_file_view,"a",stdout);
++    if (freopen(result_file_view, "a", stdout) == nullptr) {
++        std::cerr << "Error: failed to open result file: " << result_file_view << std::endl;
++        return 1;
++    }
      
      IVFRN<DIM, BB> ivf;
 +#ifdef __aarch64__
@@ -4147,8 +4285,8 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 \ No newline at end of file
 diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=result/' ./RaBitQ/src/search_model.cpp ./rabitq_neq/src/search_model.cpp
 --- ./RaBitQ/src/search_model.cpp	1970-01-01 08:00:00.000000000 +0800
-+++ ./rabitq_neq/src/search_model.cpp	2026-02-07 15:30:24.633142500 +0800
-@@ -0,0 +1,322 @@
++++ ./rabitq_neq/src/search_model.cpp	2026-03-16 11:15:24.705460500 +0800
+@@ -0,0 +1,342 @@
 +/*
 +   Copyright 2026 Huawei Technologies Co., Ltd.
 +
@@ -4168,6 +4306,7 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 +#define USE_AVX2
 +#include <iostream>
 +#include <fstream>
++#include <cstdio>
 +
 +#include <ctime>
 +#include <cmath>
@@ -4209,6 +4348,9 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 +template<uint32_t D, uint32_t B>
 +void train(const Matrix<float> &Q, const Matrix<float> &RandQ,
 +            const IVFRN<D, B> &ivf, int k, std::vector<int64_t> base_labels, int nProbeMax, int qsize, const char* dataset, float soar_lambda){
++    if (k <= 0) {
++        throw std::invalid_argument("train: k must be greater than 0");
++    }
 +    float sys_t, usr_t, usr_t_sum = 0, total_time=0, search_time=0;
 +    struct rusage run_start, run_end;
 +    const float maxRecall = 0.9999;
@@ -4394,6 +4536,11 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 +                break; 
 +        }
 +    }
++
++    if (topk <= 0) {
++        std::cerr << "Error: -k must be greater than 0" << std::endl;
++        return 1;
++    }
 +    
 +    // ================================================================================================================================
 +    // Data Files
@@ -4404,29 +4551,40 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 +    int32_t nb_, nq_, dim_, gt_closest;
 +
 +    loadHDF(data_path, nb_, nq_, dim_, gt_closest, xb_, xq_, gt_ids_, gt_dists_, metric_type);
++    delete[] gt_dists_;
++    gt_dists_ = nullptr;
 +
 +    Matrix<float> Q(xq_, nq_, dim_, false);
 +    Matrix<float> X(xb_, nb_, dim_, false);
 +    Matrix<int64_t> G(gt_ids_, nq_, gt_closest, false);
++    delete[] xq_;
++    xq_ = nullptr;
++    delete[] xb_;
++    xb_ = nullptr;
++    delete[] gt_ids_;
++    gt_ids_ = nullptr;
 +
 +    char transformation_path[256] = "";
-+    sprintf(transformation_path, "%sP_C%d_B%d.fvecs", source, numC, BB);
++    snprintf(transformation_path, sizeof(transformation_path), "%sP_C%d_B%d.fvecs", source, numC, BB);
 +    Matrix<float> P(transformation_path);
 +
 +    char index_path[256] = "";
-+    sprintf(index_path, "%sivfrabitq_%s_%d_B%d.index", source, scan_type, numC, BB);
++    snprintf(index_path, sizeof(index_path), "%sivfrabitq_%s_%d_B%d.index", source, scan_type, numC, BB);
 +    std::cerr << index_path << std::endl;
 +#if defined(FAST_SCAN)
 +    char result_file_view[256] = "";
-+    sprintf(result_file_view, "%s%s_ivfrabitq%d_B%d_fast_scan.log", result_path, dataset, numC, BB);
++    snprintf(result_file_view, sizeof(result_file_view), "%s%s_ivfrabitq%d_B%d_fast_scan.log", result_path, dataset, numC, BB);
 +#elif defined(SCAN)
 +    char result_file_view[256] = "";
-+    sprintf(result_file_view, "%s%s_ivfrabitq%d_B%d_scan.log", result_path, dataset, numC, BB);
++    snprintf(result_file_view, sizeof(result_file_view), "%s%s_ivfrabitq%d_B%d_scan.log", result_path, dataset, numC, BB);
 +#endif
 +    std::cerr << "Loading Succeed!" << std::endl;
 +    // ================================================================================================================================
 +
-+    freopen(result_file_view,"a",stdout);
++    if (freopen(result_file_view, "a", stdout) == nullptr) {
++        std::cerr << "Error: failed to open result file: " << result_file_view << std::endl;
++        return 1;
++    }
 +    
 +    IVFRN<DIM, BB> ivf;
 +    if (soar_lambda > 0){
@@ -5149,7 +5307,7 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 \ No newline at end of file
 diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=result/' ./RaBitQ/src/utils.h ./rabitq_neq/src/utils.h
 --- ./RaBitQ/src/utils.h	2026-02-25 14:30:05.559342200 +0800
-+++ ./rabitq_neq/src/utils.h	2026-02-12 15:06:25.420095300 +0800
++++ ./rabitq_neq/src/utils.h	2026-03-16 11:53:04.466830800 +0800
 @@ -2,7 +2,9 @@
  #include <chrono>
  #include <queue>
@@ -5438,7 +5596,6 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 +    return aligned_alloc(align_factor, upper_size);
  }
 \ No newline at end of file
-Binary files ./RaBitQ/technical_report.pdf and ./rabitq_neq/technical_report.pdf differ
 diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=result/' ./RaBitQ/test_all.sh ./rabitq_neq/test_all.sh
 --- ./RaBitQ/test_all.sh	1970-01-01 08:00:00.000000000 +0800
 +++ ./rabitq_neq/test_all.sh	2026-02-05 21:21:57.738489200 +0800
@@ -5474,8 +5631,8 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 +echo "All operations completed successfully."
 diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=result/' ./RaBitQ/unit_test/CMakeLists.txt ./rabitq_neq/unit_test/CMakeLists.txt
 --- ./RaBitQ/unit_test/CMakeLists.txt	1970-01-01 08:00:00.000000000 +0800
-+++ ./rabitq_neq/unit_test/CMakeLists.txt	2026-02-24 16:56:49.376706300 +0800
-@@ -0,0 +1,83 @@
++++ ./rabitq_neq/unit_test/CMakeLists.txt	2026-03-16 09:57:46.880091500 +0800
+@@ -0,0 +1,84 @@
 +cmake_minimum_required(VERSION 3.12.0)
 +
 +project(rabitq_unit_tests LANGUAGES CXX)
@@ -5546,6 +5703,7 @@ diff -uNr --strip-trailing-cr '--exclude=.git' '--exclude=bin/' '--exclude=resul
 +)
 +
 +# Note: numC is defined per test case, not globally
++
 +target_compile_definitions(rabitq_unit_test PRIVATE B_QUERY=4)
 +
 +target_link_libraries(rabitq_unit_test 
