@@ -602,6 +602,47 @@ void IVFRN<D, B>::fast_scan(ResultHeap &KNNs, float &distK, uint32_t k, \
 template <uint32_t D, uint32_t B>
 ResultHeap IVFRN<D, B>::search(float* query, float* rd_query, uint32_t k, uint32_t nprobe,
                             float soar_lambda, float threshold, int pred_nprobe, PredictFunc pred, float distK) const{
+    if (query == nullptr || rd_query == nullptr) {
+        throw std::invalid_argument("search: query pointers must not be null");
+    }
+    if (k == 0) {
+        throw std::invalid_argument("search: k must be greater than 0");
+    }
+    if (C == 0 || C > numC || centroid == nullptr || centroid_f16 == nullptr ||
+        u == nullptr || start == nullptr || len == nullptr || id == nullptr) {
+        throw std::runtime_error("search: index is not initialized");
+    }
+    if (nprobe == 0 || nprobe > C) {
+        throw std::invalid_argument("search: nprobe is out of range");
+    }
+    if (soar_lambda > 0 && !use_soar) {
+        throw std::invalid_argument("search: SOAR is not enabled for this index");
+    }
+    if (pred_nprobe > 0) {
+        if (pred == nullptr) {
+            throw std::invalid_argument("search: pred callback must not be null when pred_nprobe is enabled");
+        }
+        if (pred_nprobe > static_cast<int>(C)) {
+            throw std::invalid_argument("search: pred_nprobe is out of range");
+        }
+    }
+#if defined(FAST_SCAN)
+    if (centroid_f16 == nullptr || data_f16 == nullptr || packed_code == nullptr || fac_f16_start == nullptr) {
+        throw std::runtime_error("search: FAST_SCAN buffers are not initialized");
+    }
+    if (use_soar && (start_spilled == nullptr || len_spilled == nullptr || id_spilled == nullptr ||
+                     data_f16_spilled == nullptr || packed_code_spilled == nullptr || fac_f16_start_spilled == nullptr)) {
+        throw std::runtime_error("search: SOAR buffers are not initialized");
+    }
+#elif defined(SCAN)
+    if (binary_code == nullptr || fac == nullptr || data == nullptr) {
+        throw std::runtime_error("search: SCAN buffers are not initialized");
+    }
+    if (use_soar && (start_spilled == nullptr || len_spilled == nullptr || id_spilled == nullptr ||
+                     binary_code_spilled == nullptr || fac_spilled == nullptr || data_spilled == nullptr)) {
+        throw std::runtime_error("search: SOAR buffers are not initialized");
+    }
+#endif
     //// model
     if (pred_nprobe > 0) {
         vector<Entry> fdata(4);
@@ -630,13 +671,16 @@ ResultHeap IVFRN<D, B>::search(float* query, float* rd_query, uint32_t k, uint32
     Result centroid_dist[numC];
     constexpr uint32_t D_B_max = D > B ? D : B;
     float16_t* query_f16 = static_cast<float16_t*>(upper_bound_aligned_alloc(64, D_B_max * sizeof(float16_t)));
+    if (query_f16 == nullptr) {
+        throw std::runtime_error("search: failed to allocate query buffer");
+    }
     quant_f16(rd_query, B, query_f16);
     for(int i = 0; i < C; i++) {
         __builtin_prefetch(centroid_f16 + B * (i + PD3), 0, 3);
         centroid_dist[i].first = krl_L2sqr_f16f32<B>(query_f16, centroid_f16 + B * i);
         centroid_dist[i].second = i;
     }
-    std::partial_sort(centroid_dist, centroid_dist + nprobe, centroid_dist + numC);
+    std::partial_sort(centroid_dist, centroid_dist + nprobe, centroid_dist + C);
     // ===========================================================================================================
 #if defined(FAST_SCAN)
     quant_f16(query, D, query_f16);

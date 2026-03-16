@@ -215,6 +215,9 @@ void IVFRN<D, B>::compute_factor() {
 // =================================================== load function ===========================================================================
 template <uint32_t D, uint32_t B>
 void IVFRN<D, B>::load(char * filename){
+    if (filename == nullptr || filename[0] == '\0') {
+        throw std::invalid_argument("load: filename must not be null or empty");
+    }
     std::ifstream input(filename, std::ios::binary);
 
     if (!input.is_open())
@@ -369,7 +372,13 @@ void IVFRN<D, B>::load(char * filename){
 //
 template <uint32_t D, uint32_t B>
 void IVFRN<D, B>::save(char * filename){
+    if (filename == nullptr || filename[0] == '\0') {
+        throw std::invalid_argument("save: filename must not be null or empty");
+    }
     std::ofstream output(filename, std::ios::binary);
+    if (!output.is_open()) {
+        throw std::runtime_error("save: failed to open file");
+    }
 
     uint32_t d = D;
     uint32_t b = B;
