@@ -68,6 +68,7 @@ target_compile_options(rabitq_unit_test PRIVATE
 )
 
 # Note: numC is defined per test case, not globally
+
 target_compile_definitions(rabitq_unit_test PRIVATE B_QUERY=4)
 
 target_link_libraries(rabitq_unit_test 

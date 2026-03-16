@@ -8,6 +8,7 @@
 #include <cmath>
 #include <random>
 #include <cstring>
+#include <stdexcept>
 #include <assert.h>
 #include <Eigen/Dense>
 
@@ -299,8 +300,12 @@ void Matrix<T>::deserialize(FILE * fp){
 
     size_t size = sizeof(T);
     fread(&size, sizeof(size_t), 1, fp);
-    data = new T [n * d];
-    fread(data, size,  n * d, fp);
+    if (d != 0 && n > static_cast<size_t>(-1) / d) {
+        throw std::overflow_error("deserialize: matrix size overflow");
+    }
+    size_t count = n * d;
+    data = new T [count];
+    fread(data, size, count, fp);
 }
 
 double normalize(float *x, unsigned D){

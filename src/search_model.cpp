@@ -17,6 +17,7 @@
 #define USE_AVX2
 #include <iostream>
 #include <fstream>
+#include <cstdio>
 
 #include <ctime>
 #include <cmath>
@@ -58,6 +59,9 @@ void findTruth(std::vector<int64_t> &approximateGT, float *train_data, float *ra
 template<uint32_t D, uint32_t B>
 void train(const Matrix<float> &Q, const Matrix<float> &RandQ,
             const IVFRN<D, B> &ivf, int k, std::vector<int64_t> base_labels, int nProbeMax, int qsize, const char* dataset, float soar_lambda){
+    if (k <= 0) {
+        throw std::invalid_argument("train: k must be greater than 0");
+    }
     float sys_t, usr_t, usr_t_sum = 0, total_time=0, search_time=0;
     struct rusage run_start, run_end;
     const float maxRecall = 0.9999;
@@ -243,6 +247,11 @@ int main(int argc, char * argv[]) {
                 break; 
         }
     }
+
+    if (topk <= 0) {
+        std::cerr << "Error: -k must be greater than 0" << std::endl;
+        return 1;
+    }
     
     // ================================================================================================================================
     // Data Files
@@ -253,29 +262,40 @@ int main(int argc, char * argv[]) {
     int32_t nb_, nq_, dim_, gt_closest;
 
     loadHDF(data_path, nb_, nq_, dim_, gt_closest, xb_, xq_, gt_ids_, gt_dists_, metric_type);
+    delete[] gt_dists_;
+    gt_dists_ = nullptr;
 
     Matrix<float> Q(xq_, nq_, dim_, false);
     Matrix<float> X(xb_, nb_, dim_, false);
     Matrix<int64_t> G(gt_ids_, nq_, gt_closest, false);
+    delete[] xq_;
+    xq_ = nullptr;
+    delete[] xb_;
+    xb_ = nullptr;
+    delete[] gt_ids_;
+    gt_ids_ = nullptr;
 
     char transformation_path[256] = "";
-    sprintf(transformation_path, "%sP_C%d_B%d.fvecs", source, numC, BB);
+    snprintf(transformation_path, sizeof(transformation_path), "%sP_C%d_B%d.fvecs", source, numC, BB);
     Matrix<float> P(transformation_path);
 
     char index_path[256] = "";
-    sprintf(index_path, "%sivfrabitq_%s_%d_B%d.index", source, scan_type, numC, BB);
+    snprintf(index_path, sizeof(index_path), "%sivfrabitq_%s_%d_B%d.index", source, scan_type, numC, BB);
     std::cerr << index_path << std::endl;
 #if defined(FAST_SCAN)
     char result_file_view[256] = "";
-    sprintf(result_file_view, "%s%s_ivfrabitq%d_B%d_fast_scan.log", result_path, dataset, numC, BB);
+    snprintf(result_file_view, sizeof(result_file_view), "%s%s_ivfrabitq%d_B%d_fast_scan.log", result_path, dataset, numC, BB);
 #elif defined(SCAN)
     char result_file_view[256] = "";
-    sprintf(result_file_view, "%s%s_ivfrabitq%d_B%d_scan.log", result_path, dataset, numC, BB);
+    snprintf(result_file_view, sizeof(result_file_view), "%s%s_ivfrabitq%d_B%d_scan.log", result_path, dataset, numC, BB);
 #endif
     std::cerr << "Loading Succeed!" << std::endl;
     // ================================================================================================================================
 
-    freopen(result_file_view,"a",stdout);
+    if (freopen(result_file_view, "a", stdout) == nullptr) {
+        std::cerr << "Error: failed to open result file: " << result_file_view << std::endl;
+        return 1;
+    }
     
     IVFRN<DIM, BB> ivf;
     if (soar_lambda > 0){

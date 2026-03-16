@@ -109,8 +109,8 @@ generate() {
     echo "=== 开始生成数据 ==="
     cd ./data || exit 1
     # mkdir -p sift glove gist deep fashion
-    numactl -N 0 -m 0 python3 ivf.py $HDF5_PATH $DATASET_NAME $K_VALUE $METRIC_TYPE $SOAR_LAMBDA
-    numactl -N 0 -m 0 python3 rabitq.py $HDF5_PATH $DATASET_NAME $K_VALUE $METRIC_TYPE $SOAR_LAMBDA
+    python3 ivf.py $HDF5_PATH $DATASET_NAME $K_VALUE $METRIC_TYPE $SOAR_LAMBDA
+    python3 rabitq.py $HDF5_PATH $DATASET_NAME $K_VALUE $METRIC_TYPE $SOAR_LAMBDA
     
     cd ..
     echo "=== 数据生成完成 ==="
@@ -138,7 +138,7 @@ index() {
           -D BB=${B} -D DIM=${D} -D numC=${K_VALUE} -D B_QUERY=4 ${EXTRA_DEFS}
     fi
     
-    numactl -N 0 -m 0 ./bin/index_${DATASET_NAME} -d $DATASET_NAME -s "$source/$DATASET_NAME/" -p "$HDF5_PATH" -m "$METRIC_TYPE" -a "$SOAR_LAMBDA"
+    ./bin/index_${DATASET_NAME} -d $DATASET_NAME -s "$source/$DATASET_NAME/" -p "$HDF5_PATH" -m "$METRIC_TYPE" -a "$SOAR_LAMBDA"
     
     echo "=== 索引构建完成 ==="
 }
@@ -177,25 +177,10 @@ search() {
 
     export MALLOC_CONF="narenas:1"
     
-    numactl -N 0 -m 0 ./bin/search_${DATASET_NAME} \
+    ./bin/search_${DATASET_NAME} \
         -d ${DATASET_NAME} -r ${res} -k ${k} -n ${NPROBE} \
         -s "$source/$DATASET_NAME/" -p "$HDF5_PATH" -m "$METRIC_TYPE" -t "$THRESHOLD" -e "$PRED_NPROBE" -a "$SOAR_LAMBDA" \
          &
-   
-    numactl -N 1 -m 1 ./bin/search_${DATASET_NAME} \
-        -d ${DATASET_NAME} -r ${res} -k ${k} -n ${NPROBE} \
-        -s "$source/$DATASET_NAME/" -p "$HDF5_PATH" -m "$METRIC_TYPE" -t "$THRESHOLD" -e "$PRED_NPROBE" -a "$SOAR_LAMBDA" \
-        &
-    
-    numactl -N 2 -m 2 ./bin/search_${DATASET_NAME} \
-        -d ${DATASET_NAME} -r ${res} -k ${k} -n ${NPROBE} \
-        -s "$source/$DATASET_NAME/" -p "$HDF5_PATH" -m "$METRIC_TYPE" -t "$THRESHOLD" -e "$PRED_NPROBE" -a "$SOAR_LAMBDA" \
-        &
-    
-    numactl -N 3 -m 3 ./bin/search_${DATASET_NAME} \
-        -d ${DATASET_NAME} -r ${res} -k ${k} -n ${NPROBE} \
-        -s "$source/$DATASET_NAME/" -p "$HDF5_PATH" -m "$METRIC_TYPE" -t "$THRESHOLD" -e "$PRED_NPROBE" -a "$SOAR_LAMBDA" \
-        &
     
     wait
     echo "=== 搜索完成 ==="
@@ -225,7 +210,7 @@ train() {
       res="${result_path}/${DATASET_NAME}/"
       mkdir -p "$result_path/${DATASET_NAME}/"
       
-      numactl -N 0 -m 0  ./bin/search_model_${DATASET_NAME} \
+      ./bin/search_model_${DATASET_NAME} \
           -d ${DATASET_NAME} -r ${res} -k ${k} -n ${K_VALUE} \
           -s "$source/$DATASET_NAME/" -p "$HDF5_PATH" -m "$METRIC_TYPE" -a "$SOAR_LAMBDA"
     fi
@@ -237,7 +222,7 @@ eval() {
     echo "=== 开始生成数据 ==="
     if [[ "$ARCH" == "aarch64" ]]; then
       cd ./data || exit 1
-      LD_PRELOAD="/root/miniconda3/lib/libtreelite.so" numactl -N 0 -m 0 python3 eval.py "$HDF5_PATH" "$DATASET_NAME" "$K_VALUE" "$METRIC_TYPE" "$source/$DATASET_NAME/" "${B}"
+      python3 eval.py "$HDF5_PATH" "$DATASET_NAME" "$K_VALUE" "$METRIC_TYPE" "$source/$DATASET_NAME/" "${B}"
       cd ..
     fi
     echo "=== 数据生成完成 ==="
