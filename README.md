@@ -14,6 +14,7 @@ RaBitQ是由NTU团队提出的面向高维向量近似最近邻搜索（ANN）�
 
 ```text
 rabitq/
+├─ docs        // 资料
 ├─ 0001-rabitq-optimize-neq.patch         // 非等价索引优化补丁（全量优化）
 ├─ 0002-rabitq-optimize-eqv.patch         // 等价索引优化补丁
 ```
@@ -56,17 +57,17 @@ RaBitQ/
 
 ## 版本说明
 
-关于RaBitQ的版本更新情况请参见《RaBitQ版本说明书》。
+关于RaBitQ的版本更新情况请参见《[RaBitQ版本说明书](docs/zh/版本说明书.md)》。
 
 ## 学习文档
 
 
 | 学习资源类别 | 学习资源名称                        | 学习资源简介                                                    |
 | ------ | ----------------------------- | --------------------------------------------------------- |
-| 文档     | [快速入门](docs/快速入门.md)         | 提供概述、前置条件、补丁应用方法和基本使用指导。                           |
-| 文档     | [特性指南](docs/特性指南.md)     | 详细说明等价索引优化和非等价索引优化的技术内容，包括SOAR算法、ML自适应nprobe机制及技术架构。      |
-| 文档     | [API参考](docs/API参考.md)     | 对比原始RaBitQ开源代码，详细列出Python脚本、C++命令行、IVFRN类和Shell脚本的全部接口变动。 |
-| 文档     | [用户指南](docs/用户指南.md) | 提供run.sh测试脚本的详细使用方法，包括参数说明、数据集配置、搜索参数、环境配置和使用示例。          |
+| 文档     | [快速入门](docs/zh/快速入门.md)         | 提供概述、前置条件、补丁应用方法和基本使用指导。                           |
+| 文档     | [特性指南](docs/zh/特性指南.md)     | 详细说明等价索引优化和非等价索引优化的技术内容，包括SOAR算法、ML自适应nprobe机制及技术架构。      |
+| 文档     | [API参考](docs/zh/API参考.md)     | 对比原始RaBitQ开源代码，详细列出Python脚本、C++命令行、IVFRN类和Shell脚本的全部接口变动。 |
+| 文档     | [用户指南](docs/zh/用户指南.md) | 提供run.sh测试脚本的详细使用方法，包括参数说明、数据集配置、搜索参数、环境配置和使用示例。          |
 
 
 ## 免责声明
@@ -75,13 +76,13 @@ RaBitQ/
 
 ## License
 
-RaBitQ采用Apache License 2.0许可证授权。
+本项目采用Apache License 2.0许可证授权，详见[LICENSE](LICENSE)文件
 
-Copyright 2026 Huawei Technologies Co., Ltd.
+本项目的文档适用CC-BY 4.0许可证，具体请参见文件[LICENSE](docs/zh/LICENSE)文件
 
 ## 贡献声明
 
-欢迎大家为社区做贡献，如果使用过程中有任何问题/建议，或者需要反馈特性需求和bug报告，可以提交[Issues](zh-cn_topic_0000002535534673.md)联系我们，具体贡献方法可参考[这里](https://gitcode.com/boostkit/community/blob/master/docs/contributor/contributing.md)。同时也欢迎大家在[讨论专区](https://gitcode.com/boostkit/community/discussions)展开讨论交流。感谢您的支持。
+欢迎大家为社区做贡献，如果使用过程中有任何问题/建议，或者需要反馈特性需求和bug报告，可以提交[Issues](https://gitcode.com/boostkit/community/blob/master/docs/contributor/issue-submit.md)联系我们，具体贡献方法可参考[这里](https://gitcode.com/boostkit/community/blob/master/docs/contributor/contributing.md)。同时也欢迎大家在[讨论专区](https://gitcode.com/boostkit/community/discussions)展开讨论交流。感谢您的支持。
 
 ## 致谢
 
