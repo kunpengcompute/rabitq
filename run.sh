@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -e
 # 参数检查
 if [[ $# -lt 1 || $# -gt 3 ]]; then
   echo "Usage: $0 <dataset> [fastscan|scan] [generate|index|search|train|eval|all]"
@@ -104,6 +104,19 @@ echo "METRIC_TYPE: ${METRIC_TYPE}"
 echo "SOAR_LAMBDA: ${SOAR_LAMBDA}"
 echo "================="
 
+FAST_SCAN_OBJ=""
+
+build_fast_scan_asm() {
+    FAST_SCAN_OBJ=""
+    if [[ "$ARCH" == "aarch64" && "$MODE" == "fastscan" ]]; then
+        mkdir -p bin
+        FAST_SCAN_OBJ="./bin/krl_table_lookup_fast_scan.o"
+        clang++ -c -march=armv8-a+fp16fml \
+            -o "${FAST_SCAN_OBJ}" \
+            ./src/krl_table_lookup_fast_scan.s || return 1
+    fi
+}
+
 # 生成数据
 generate() {
     echo "=== 开始生成数据 ==="
@@ -158,9 +171,10 @@ search() {
               -lhdf5_cpp -lhdf5 \
               -D BB=${B} -D DIM=${D} -D numC=${K_VALUE} -D B_QUERY=4 ${EXTRA_DEFS}
     elif [[ "$ARCH" == "aarch64" ]]; then
+      build_fast_scan_asm || exit 1
       clang++ -g -march=armv8-a+fp16fml -falign-loops=64  -fpermissive -ffast-math -fno-trapping-math -funroll-loops -fopenmp -Ofast -flto=full -fuse-ld=lld -Wno-c++11-narrowing \
               -o ./bin/search_${DATASET_NAME} \
-              ./src/search.cpp ./src/test_result.cpp ./src/krl_table_lookup_fast_scan.s \
+              ./src/search.cpp ./src/test_result.cpp ${FAST_SCAN_OBJ} \
               -I ./src/ \
               -I /usr/include/hdf5/serial/ \
               -L /usr/lib/aarch64-linux-gnu/hdf5/serial/ \
@@ -193,9 +207,10 @@ train() {
     local k=10
     mkdir -p bin
     if [[ "$ARCH" == "aarch64" ]]; then
+      build_fast_scan_asm || exit 1
       clang++ -g -march=armv8-a+fp16fml -fpermissive -ffast-math -fno-trapping-math -funroll-loops -fopenmp -Ofast -flto=full -fuse-ld=lld -Wno-c++11-narrowing\
               -o ./bin/search_model_${DATASET_NAME} \
-              ./src/search_model.cpp ./src/test_result.cpp ./src/krl_table_lookup_fast_scan.s \
+              ./src/search_model.cpp ./src/test_result.cpp ${FAST_SCAN_OBJ} \
               -I ./src/ \
               -I /usr/include/hdf5/serial/ \
               -L /usr/lib/aarch64-linux-gnu/hdf5/serial/ \
