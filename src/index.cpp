@@ -116,24 +116,26 @@ int main(int argc, char * argv[]) {
     loadHDFBase(data_path, nb_, dim_, xb_, metric_type);
 
     Matrix<float> X(xb_, nb_, dim_, false);
+    delete[] xb_;
+    xb_ = nullptr;
 
     std::cerr << "BB= " <<BB<< std::endl;
-    sprintf(centroid_path, "%sRandCentroid_C%d_B%d.fvecs", source, numC, BB);
+    snprintf(centroid_path, sizeof(centroid_path), "%sRandCentroid_C%d_B%d.fvecs", source, numC, BB);
     Matrix<float> C(centroid_path);
 
-    sprintf(x0_path, "%sx0_C%d_B%d.fvecs", source, numC, BB);
+    snprintf(x0_path, sizeof(x0_path), "%sx0_C%d_B%d.fvecs", source, numC, BB);
     Matrix<float> x0(x0_path);
 
-    sprintf(dist_to_centroid_path, "%s%s_dist_to_centroid_%d.fvecs", source, dataset, numC);
+    snprintf(dist_to_centroid_path, sizeof(dist_to_centroid_path), "%s%s_dist_to_centroid_%d.fvecs", source, dataset, numC);
     Matrix<float> dist_to_centroid(dist_to_centroid_path);
     
-    sprintf(cluster_id_path, "%s%s_cluster_id_%d.ivecs", source, dataset, numC);
+    snprintf(cluster_id_path, sizeof(cluster_id_path), "%s%s_cluster_id_%d.ivecs", source, dataset, numC);
     Matrix<uint32_t> cluster_id(cluster_id_path);
     
-    sprintf(binary_path, "%sRandNet_C%d_B%d.Ivecs", source, numC, BB);
+    snprintf(binary_path, sizeof(binary_path), "%sRandNet_C%d_B%d.Ivecs", source, numC, BB);
     Matrix<uint64_t> binary(binary_path);
 
-    sprintf(index_path, "%sivfrabitq_%s_%d_B%d.index", source, scan_type, numC, BB);
+    snprintf(index_path, sizeof(index_path), "%sivfrabitq_%s_%d_B%d.index", source, scan_type, numC, BB);
     std::cerr << "Loading Succeed!" << std::endl << std::endl;
     // ==============================================================================================================
 
@@ -144,19 +146,19 @@ int main(int argc, char * argv[]) {
     } else {
     #ifdef __aarch64__
         char x0_spilled_path[256] = "";
-        sprintf(x0_spilled_path, "%sx0_spilled_C%d_B%d.fvecs", source, numC, BB);
+        snprintf(x0_spilled_path, sizeof(x0_spilled_path), "%sx0_spilled_C%d_B%d.fvecs", source, numC, BB);
         Matrix<float> x0_spilled(x0_spilled_path);
         
         char dist_to_spilled_labels_path[256] = "";
-        sprintf(dist_to_spilled_labels_path, "%s%s_dist_to_spilled_labels_%d.fvecs", source, dataset, numC);
+        snprintf(dist_to_spilled_labels_path, sizeof(dist_to_spilled_labels_path), "%s%s_dist_to_spilled_labels_%d.fvecs", source, dataset, numC);
         Matrix<float> dist_to_spilled_labels(dist_to_spilled_labels_path);
         
         char binary_spilled_path[256] = "";
-        sprintf(binary_spilled_path, "%sRandNet_spilled_C%d_B%d.Ivecs", source, numC, BB);
+        snprintf(binary_spilled_path, sizeof(binary_spilled_path), "%sRandNet_spilled_C%d_B%d.Ivecs", source, numC, BB);
         Matrix<uint64_t> binary_spilled(binary_spilled_path);
 
         char spilled_labels_path[256] = "";
-        sprintf(spilled_labels_path, "%s%s_spilled_labels_%d.ivecs", source, dataset, numC);
+        snprintf(spilled_labels_path, sizeof(spilled_labels_path), "%s%s_spilled_labels_%d.ivecs", source, dataset, numC);
         Matrix<uint32_t> spilled_labels(spilled_labels_path);
 
         std::cerr << "start to init\n";

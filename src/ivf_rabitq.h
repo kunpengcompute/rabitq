@@ -269,8 +269,56 @@ IVFRN<D, B>::IVFRN(const Matrix<float> &X, const Matrix<float> &_centroids, cons
 
     use_soar = false;
 
+    if (X.data == nullptr || _centroids.data == nullptr || dist_to_centroid.data == nullptr ||
+        _x0.data == nullptr || cluster_id.data == nullptr || binary.data == nullptr) {
+        throw std::invalid_argument("IVFRN: input matrix data must not be null");
+    }
+    if (X.d != D || _centroids.d != B || binary.n != X.n || binary.d != (B / 64)) {
+        throw std::invalid_argument("IVFRN: input matrix dimensions do not match index parameters");
+    }
+    if (dist_to_centroid.n * dist_to_centroid.d != X.n ||
+        _x0.n * _x0.d != X.n ||
+        cluster_id.n * cluster_id.d != X.n) {
+        throw std::invalid_argument("IVFRN: input matrix sizes are inconsistent");
+    }
+
+    const bool has_any_soar_input = dist_to_spilled_labels != nullptr || _x0_spilled != nullptr ||
+                                    spilled_labels != nullptr || binary_spilled != nullptr;
+    const bool has_all_soar_input = dist_to_spilled_labels != nullptr && _x0_spilled != nullptr &&
+                                    spilled_labels != nullptr && binary_spilled != nullptr;
+    if (has_any_soar_input && !has_all_soar_input) {
+        throw std::invalid_argument("IVFRN: SOAR inputs must be provided together");
+    }
+    if (has_all_soar_input) {
+        if (dist_to_spilled_labels->data == nullptr || _x0_spilled->data == nullptr ||
+            spilled_labels->data == nullptr || binary_spilled->data == nullptr) {
+            throw std::invalid_argument("IVFRN: SOAR input matrix data must not be null");
+        }
+        if (dist_to_spilled_labels->n * dist_to_spilled_labels->d != X.n ||
+            _x0_spilled->n * _x0_spilled->d != X.n ||
+            spilled_labels->n * spilled_labels->d != X.n ||
+            binary_spilled->n != X.n || binary_spilled->d != (B / 64)) {
+            throw std::invalid_argument("IVFRN: SOAR input matrix sizes are inconsistent");
+        }
+    }
+
     N = X.n;
     C = _centroids.n;
+    if (C == 0 || C > numC) {
+        throw std::invalid_argument("IVFRN: invalid cluster count");
+    }
+    for (size_t i = 0; i < X.n; ++i) {
+        if (cluster_id.data[i] >= C) {
+            throw std::out_of_range("IVFRN: cluster id out of range");
+        }
+    }
+    if (has_all_soar_input) {
+        for (size_t i = 0; i < X.n; ++i) {
+            if (spilled_labels->data[i] >= C) {
+                throw std::out_of_range("IVFRN: spilled label out of range");
+            }
+        }
+    }
 
     // check uint64_t
     assert(B % 64 == 0);
