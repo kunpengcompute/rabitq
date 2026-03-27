@@ -1,26 +1,26 @@
 # API参考
 
-本文档详细说明等价索引优化和非等价索引优化相对于原始 RaBitQ 开源代码的接口变动。
+本文档详细说明等价索引优化和非等价索引优化相对于原始RaBitQ开源代码的接口变动。
 
 ---
 
 ## 等价索引优化接口变动
 
-### C++ 命令行参数
+### C++命令行参数
 
-**`index` 程序：**
+**index程序：**
 
 | 参数 | 原始 | 优化后 |
 |------|------|--------|
 | `-d` (dataset) | 有 | 有 |
 | `-s` (source) | 有 | 有 |
-| `-p` (data\_path) | — | 新增，HDF5 数据文件路径 |
+| `-p` (data\_path) | — | 新增，HDF5数据文件路径 |
 | `-m` (metric\_type) | — | 新增，度量类型（squared\_l2 / dot\_product） |
-| `-a` (soar\_lambda) | — | 新增，SOAR 参数（设为 0 禁用） |
+| `-a` (soar\_lambda) | — | 新增，SOAR 参数（设为0禁用） |
 
-数据加载方式从直接读取 fvecs 改为通过 `loadHDFBase()` 读取 HDF5 格式。
+数据加载方式从直接读取fvecs改为通过loadHDFBase()读取HDF5格式。
 
-**`search` 程序：**
+**search程序：**
 
 | 参数 | 原始 | 优化后 |
 |------|------|--------|
@@ -32,11 +32,11 @@
 | `-p` (data\_path) | — | 新增，HDF5 数据文件路径 |
 | `-m` (metric\_type) | — | 新增，度量类型 |
 
-数据加载方式从 fvecs/ivecs 改为通过 `loadHDF()` 读取 HDF5 格式。搜索框架从单线程改为多线程（pthread 绑核 + OpenMP），支持多 NUMA 节点并发。
+数据加载方式从 fvecs/ivecs 改为通过loadHDF()读取HDF5格式。搜索框架从单线程改为多线程（pthread绑核 + OpenMP），支持多NUMA节点并发。
 
-### C++ IVFRN 类
+### C++ IVFRN类
 
-`IVFRN` 类的公有接口签名保持不变，ARM64 平台下内部新增以下私有成员和方法：
+IVFRN类的公有接口签名保持不变，ARM64平台下内部新增以下私有成员和方法：
 
 | 变更 | 说明 |
 |------|------|
@@ -50,37 +50,39 @@
 
 ### Shell 脚本
 
-原始的 `script/index.sh` 和 `script/search.sh` 使用硬编码参数和 g++ 编译。优化后新增 `run.sh` 作为统一入口：
+原始的script/index.sh和script/search.sh使用硬编码参数和G++编译。优化后新增run.sh作为统一入口。
+
+原始
 
 ```
-# 原始
 ./script/index.sh     # 硬编码 sift, K=4096, g++ 编译
 ./script/search.sh    # 硬编码 sift, g++ 编译, 单进程
-
-# 优化后
+```
+优化后
+```
 ./run.sh <dataset> [fastscan|scan] [generate|index|search|all]
-# 支持 sift/deep/glove/fashion/gist 数据集
+# 支持sift/deep/glove/fashion/gist数据集
 # 自动检测架构（x86_64/aarch64）选择编译参数
-# ARM64 下使用 clang++ 并链接 jemalloc
-# 多 NUMA 节点并发搜索
+# ARM64 下使用clang++并链接jemalloc
+# 多NUMA节点并发搜索
 ```
 
 ---
 
 ## 非等价索引优化接口变动
 
-非等价优化包含等价优化的全部接口变动，并在此基础上新增以下变更：
+非等价优化包含等价优化的全部接口变动，并在此基础上新增以下变更。
 
-### Python 脚本
+### Python脚本
 
-| 脚本 | 新增内容 |
-|------|---------|
-| `data/eval.py` | 全新脚本：`python eval.py <hdf5_path> <dataset> <K> <metric_type> <data_path> <BB>`，负责 ML 模型训练与导出 |
-| `data/test.py` | 全新脚本：向量归一化测试工具 |
+| 脚本名称 | 脚本说明 |使用方法|
+|------|------|-------|
+| `data/eval.py` | 全新脚本：负责ML模型训练与导出。 | `python eval.py <hdf5_path> <dataset> <K> <metric_type> <data_path> <BB>` |
+| `data/test.py` | 全新脚本：向量归一化测试工具。 |-  |
 
-### C++ 命令行参数
+### C++命令行参数
 
-在等价优化基础上，`search` 程序新增：
+在等价优化基础上，search程序新增：
 
 | 参数 | 说明 |
 |------|------|
@@ -88,7 +90,7 @@
 | `-e` (pred\_nprobe) | 预测的缩减 nprobe 值 |
 | `-a` (soar\_lambda) | SOAR 参数，大于 0 时启用溢出簇搜索 |
 
-### C++ IVFRN 类
+### C++ IVFRN类
 
 | 变更 | 说明 |
 |------|------|

@@ -22,7 +22,7 @@
 
 ### 执行阶段
 
-**等价优化支持的阶段：**
+**等价优化支持的阶段**
 
 | 阶段 | 说明 |
 |------|------|
@@ -31,7 +31,7 @@
 | `search` | 编译并运行 C++ `search` 程序，执行搜索测试并输出 QPS 和召回率 |
 | `all` | 按顺序执行：`generate` → `index` → `search` |
 
-**非等价优化额外支持的阶段：**
+**非等价优化额外支持的阶段**
 
 | 阶段 | 说明 |
 |------|------|
@@ -43,7 +43,7 @@
 
 ## 数据集配置
 
-脚本内置了每个数据集的维度、量化位宽、HDF5 文件名和度量类型：
+脚本内置了每个数据集的维度、量化位宽、HDF5文件名和度量类型。
 
 | 数据集 | HDF5 文件 | 度量类型 | D（维度） | B（量化位宽） |
 |--------|----------|---------|-----------|--------------|
@@ -53,13 +53,13 @@
 | `fashion` | `fashion-mnist-784-euclidean.hdf5` | squared\_l2 | 784 | 832 |
 | `gist` | `gist-960-euclidean.hdf5` | squared\_l2 | 960 | 960 |
 
-HDF5 数据文件需放置在 `./datasets/` 目录下。
+HDF5数据文件需放置在 `./datasets/` 目录下。
 
 ---
 
 ## 搜索参数
 
-脚本根据数据集和架构自动配置搜索参数，格式为 `K_VALUE NPROBE THRESHOLD PRED_NPROBE SOAR_LAMBDA`：
+脚本根据数据集和架构自动配置搜索参数，格式为 `K_VALUE NPROBE THRESHOLD PRED_NPROBE SOAR_LAMBDA`。
 
 ### 等价优化参数（适用于aarch64）
 
@@ -82,24 +82,23 @@ HDF5 数据文件需放置在 `./datasets/` 目录下。
 | gist | 2048 | 100 | 0.34 | 43 | 1.2 |
 
 参数含义：
-- **THRESHOLD > 0**：启用 ML 自适应 nprobe（`sift` 和 `gist` 启用）
-- **PRED\_NPROBE > 0**：ML 预测为"简单"查询时使用的缩减 nprobe 值
-- **SOAR\_LAMBDA > 0**：启用 SOAR 溢出向量搜索（`deep` 和 `gist` 启用）
+- **THRESHOLD > 0**：启用ML自适应nprobe（`sift` 和 `gist` 启用）。
+- **PRED\_NPROBE > 0**：ML预测为"简单"查询时使用的缩减nprobe值。
+- **SOAR\_LAMBDA > 0**：启用SOAR溢出向量搜索（`deep` 和 `gist` 启用）。
 
 ---
 
 ## 环境配置
 
-### HDF5 库路径
+### HDF5库路径
 
-等价优化的 `run.sh` 需要手动配置 HDF5 库路径：
+- 等价索引优化的`run.sh` 需要手动配置HDF5库路径。
 
-```bash
-# 修改 run.sh 中的以下变量
-HDF5_LIB_ROOT_DIR="/path/to/HDF5"
-```
+   ```bash
+   HDF5_LIB_ROOT_DIR="/path/to/HDF5"
+   ```
 
-非等价优化默认使用系统路径 `/usr/include/hdf5/serial/` 和 `/usr/lib/aarch64-linux-gnu/hdf5/serial/`。
+- 非等价索引优化默认使用系统路径 `/usr/include/hdf5/serial/` 和 `/usr/lib/aarch64-linux-gnu/hdf5/serial/`。
 
 ### 编译器选择
 
@@ -108,16 +107,16 @@ HDF5_LIB_ROOT_DIR="/path/to/HDF5"
 | x86\_64 | clang++，`-march=native` | index: g++；search: clang++，`-march=native` |
 | aarch64 | clang++，`-march=armv8-a+fp16fml` | index: g++，`-march=armv8.2-a+fp16fml+dotprod`；search: clang++，`-march=armv8-a+fp16fml` |
 
-ARM64 搜索编译额外链接汇编文件 `krl_table_lookup_fast_scan.s` 和 jemalloc。
+ARM64搜索编译额外链接汇编文件`krl_table_lookup_fast_scan.s`和jemalloc。
 
 ---
 
 ## 使用示例
 
-### 等价优化完整流程
+### 等价索引优化完整流程
 
+应用等价索引优化补丁。
 ```bash
-# 应用等价优化补丁后
 ./run.sh sift fastscan all
 ```
 
@@ -129,8 +128,8 @@ ARM64 搜索编译额外链接汇编文件 `krl_table_lookup_fast_scan.s` 和 je
 
 ### 非等价优化完整流程
 
+应用非等价索引优化补丁。
 ```bash
-# 应用非等价优化补丁后
 ./run.sh sift fastscan all
 ```
 
@@ -143,27 +142,28 @@ ARM64 搜索编译额外链接汇编文件 `krl_table_lookup_fast_scan.s` 和 je
 
 ### 分步调试
 
-```bash
-# 仅重新构建索引
-./run.sh deep fastscan index
-
-# 仅执行搜索（需先完成 generate + index）
-./run.sh deep fastscan search
-
-# 仅训练 ML 模型（非等价，需先完成 generate + index）
-./run.sh sift fastscan train
-./run.sh sift fastscan eval
-```
+- 仅重新构建索。
+  ```bash
+  ./run.sh deep fastscan index
+  ```
+- 仅执行搜索（需先完成generate + index）。
+  ```bash
+  ./run.sh deep fastscan search
+  ```
+- 仅训练ML模型（非等价，需先完成generate + index）。
+  ```bash
+  ./run.sh sift fastscan train
+  ./run.sh sift fastscan eval
+  ```
 
 ### 切换扫描模式
 
-```bash
-# 使用 SIMD 快速扫描（推荐，性能更优）
-./run.sh sift fastscan all
-
-# 使用逐位操作扫描（用于验证正确性）
-./run.sh sift scan all
-```
-
----
+- 使用SIMD快速扫描（推荐，性能更优）。
+  ```bash
+  ./run.sh sift fastscan all
+  ```
+- 使用逐位操作扫描（用于验证正确性）。
+  ```bash
+  ./run.sh sift scan all
+  ```
 
