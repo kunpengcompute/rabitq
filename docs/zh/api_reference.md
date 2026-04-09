@@ -8,7 +8,7 @@
 
 ### C++命令行参数
 
-**index程序：**
+**index程序**
 
 | 参数 | 原始 | 优化后 |
 |------|------|--------|
@@ -20,7 +20,7 @@
 
 数据加载方式从直接读取fvecs改为通过loadHDFBase()读取HDF5格式。
 
-**search程序：**
+**search程序**
 
 | 参数 | 原始 | 优化后 |
 |------|------|--------|
@@ -48,18 +48,20 @@ IVFRN类的公有接口签名保持不变，ARM64平台下内部新增以下私�
 | `fast_scan()` (ARM64 重载) | 参数类型改为 `float16_t`（query、data），新增 `low_dist_scale` 参数 |
 | `fast_scan_mask()` | 新增静态方法，使用 NEON 掩码过滤的快速扫描 |
 
-### Shell 脚本
+### Shell脚本
 
 原始的script/index.sh和script/search.sh使用硬编码参数和G++编译。优化后新增run.sh作为统一入口。
 
 原始
 
-```
+```bash
 ./script/index.sh     # 硬编码 sift, K=4096, g++ 编译
 ./script/search.sh    # 硬编码 sift, g++ 编译, 单进程
 ```
+
 优化后
-```
+
+```bash
 ./run.sh <dataset> [fastscan|scan] [generate|index|search|all]
 # 支持sift/deep/glove/fashion/gist数据集
 # 自动检测架构（x86_64/aarch64）选择编译参数
@@ -102,11 +104,11 @@ IVFRN类的公有接口签名保持不变，ARM64平台下内部新增以下私�
 | `PredictFunc` | 新增类型别名 `void (*)(Entry* data, int pred_margin, double* result)`，用于 ML 模型推理回调 |
 | 溢出数据成员 | 新增 `start_spilled`, `len_spilled`, `id_spilled`, `binary_code_spilled`, `fac_f16_spilled`, `data_f16_spilled` 等成员 |
 
-### Shell 脚本
+### Shell脚本
 
 `run.sh` 在等价优化的基础上新增两个阶段：
 
-```
+```text
 ./run.sh <dataset> [fastscan|scan] [generate|index|search|train|eval|all]
                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
                                     新增 train 和 eval 阶段
