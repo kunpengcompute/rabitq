@@ -82,6 +82,7 @@ HDF5数据文件需放置在 `./datasets/` 目录下。
 | gist | 2048 | 100 | 0.34 | 43 | 1.2 |
 
 参数含义：
+
 - **THRESHOLD > 0**：启用ML自适应nprobe（`sift` 和 `gist` 启用）。
 - **PRED\_NPROBE > 0**：ML预测为"简单"查询时使用的缩减nprobe值。
 - **SOAR\_LAMBDA > 0**：启用SOAR溢出向量搜索（`deep` 和 `gist` 启用）。
@@ -116,11 +117,13 @@ ARM64搜索编译额外链接汇编文件`krl_table_lookup_fast_scan.s`和jemall
 ### 等价索引优化完整流程
 
 应用等价索引优化补丁。
+
 ```bash
 ./run.sh sift fastscan all
 ```
 
 输出包含：
+
 - 配置信息（数据集、模式、参数）
 - 数据生成进度
 - 索引构建状态
@@ -129,11 +132,13 @@ ARM64搜索编译额外链接汇编文件`krl_table_lookup_fast_scan.s`和jemall
 ### 非等价优化完整流程
 
 应用非等价索引优化补丁。
+
 ```bash
 ./run.sh sift fastscan all
 ```
 
 完整 `all` 流程依次执行：
+
 1. `generate`：生成 IVF 聚类 + RaBitQ 量化 + SOAR 溢出数据
 2. `index`：构建索引（含溢出数据）
 3. `train`：运行 `search_model` 生成最优 nprobe 标签数据（仅 ARM64）
@@ -143,14 +148,19 @@ ARM64搜索编译额外链接汇编文件`krl_table_lookup_fast_scan.s`和jemall
 ### 分步调试
 
 - 仅重新构建索。
+
   ```bash
   ./run.sh deep fastscan index
   ```
+  
 - 仅执行搜索（需先完成generate + index）。
+
   ```bash
   ./run.sh deep fastscan search
   ```
+
 - 仅训练ML模型（非等价，需先完成generate + index）。
+
   ```bash
   ./run.sh sift fastscan train
   ./run.sh sift fastscan eval
@@ -159,11 +169,13 @@ ARM64搜索编译额外链接汇编文件`krl_table_lookup_fast_scan.s`和jemall
 ### 切换扫描模式
 
 - 使用SIMD快速扫描（推荐，性能更优）。
+
   ```bash
   ./run.sh sift fastscan all
   ```
+
 - 使用逐位操作扫描（用于验证正确性）。
+
   ```bash
   ./run.sh sift scan all
   ```
-

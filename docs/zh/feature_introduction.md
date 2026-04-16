@@ -2,7 +2,7 @@
 
 ## 技术架构
 
-```
+```text
 原始 RaBitQ (x86_64 AVX2)
 │
 ├── 0002-rabitq-optimize-eqv.patch  ──→  等价优化版本（不改变算法语义）

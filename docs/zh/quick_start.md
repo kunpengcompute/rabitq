@@ -17,41 +17,45 @@ RaBitQ是一种面向高维向量近似最近邻搜索（ANN）的随机二值�
 ## 前置条件
 
 - ARM64（AArch64）架构的Linux环境（x86\_64也可编译运行，但无法启用ARM优化）
-- Eigen 3.4.0（将 `Eigen` 文件夹放置于 `./src/` 下），具体安装见[安装 Eigen 3.4.0](#安装-eigen-340)
+- Eigen 3.4.0（将 `Eigen` 文件夹放置于 `./src/` 下），具体安装见[安装 Eigen 3.4.0](#安装eigen-340)
 - HDF5开发库（`libhdf5-dev`）
 - Python 3.8+，NumPy，Faiss，tqdm，h5py，scikit-learn, pandas, lightgbm
 - treelite, tl2cgen（ML模型导出，仅非等价优化需要）
-- 支持NEON指令集的编译器（推荐llvm 16.0.6），具体安装见[安装 LLVM 16.0.6](#安装-llvm-1606)
-- ARM64优化依赖：jemalloc（内存分配优化），具体安装见[安装 jemalloc](#安装-jemalloc)
+- 支持NEON指令集的编译器（推荐llvm 16.0.6），具体安装见[安装 LLVM 16.0.6](#安装llvm-1606)
+- ARM64优化依赖：jemalloc（内存分配优化），具体安装见[安装 jemalloc](#安装jemalloc)
 
 ## 合入补丁
 
 1. 获取RaBitQ开源代码。
 
-   ```
+   ```bash
    git clone https://github.com/gaoj0017/RaBitQ.git
    ```
 
 2. 获取基于RaBitQ开源项目的ARM64平台优化补丁。
 
-   ```
+   ```bash
    git clone https://gitcode.com/boostkit/rabitq.git -b v 1.0.0
    ```
 
 3. 将补丁文件复制到当前目录。
 
-   ```
+   ```bash
    cp rabitq/0001-rabitq-optimize-neq.patch ./
    cp rabitq/0002-rabitq-optimize-eqv.patch ./
    ```
 
 4. 合入补丁。（二选一，不可同时合入。）
+
    - 合入非等价索引优化补丁
-     ```
+
+     ```bash
      patch -p1 < ../0001-rabitq-optimize-neq.patch
      ```
+
    - 合入等价索引优化补丁
-     ```
+
+     ```bash
      patch -p1 < ../0002-rabitq-optimize-eqv.patch
      ```
 
@@ -64,12 +68,13 @@ RaBitQ是一种面向高维向量近似最近邻搜索（ANN）的随机二值�
 
 - 等价索引优化补丁：数据生成 + 索引构建 + 搜索
 
-  ```
+  ```bash
   ./run.sh sift fastscan all
   ```
+
 - 非等价索引优化补丁：数据生成 + 索引构建 + ML 训练 + 搜索
 
-  ```
+  ```bash
   ./run.sh sift fastscan all
   ```
 
@@ -87,20 +92,21 @@ RaBitQ是一种面向高维向量近似最近邻搜索（ANN）的随机二值�
 
 ### 手动运行
 
-1. Python索引阶段
+1. Python索引阶段。
 
-   ```
+   ```bash
    cd data
    python ivf.py <hdf5_path> <dataset> <K> <metric_type> <soar_lambda>
    python rabitq.py <hdf5_path> <dataset> <K> <metric_type> <soar_lambda>
    cd ..
    ```
-2. C++索引构建
+2. C++索引构建。
 
-   ```
+   ```bash
    ./bin/index_<dataset> -d <dataset> -s <source> -p <hdf5_path> -m <metric_type> -a <soar_lambda>
    ```
-3. C++搜索
+3. C++搜索。
+
    ```bash
    ./bin/search_<dataset> -d <dataset> -s <source> -r <result_path> -k <topk> -n <nprobe> \
     -p <hdf5_path> -m <metric_type> -t <threshold> -e <pred_nprobe> -a <soar_lambda>
@@ -111,13 +117,15 @@ RaBitQ是一种面向高维向量近似最近邻搜索（ANN）的随机二值�
 ### 安装LLVM 16.0.6
 
 1. 下载并解压LLVM 16.0.6源码。
-   ```
+
+   ```bash
    wget -O llvm-project-16.0.6.src.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-16.0.6/llvm-project-16.0.6.src.tar.xz --no-check-certificate
    tar xf llvm-project-16.0.6.src.tar.xz
    ```
 
 2. 编译LLVM（耗时较长，建议后台执行）。
-   ```
+
+   ```bash
    cd llvm-project-16.0.6.src
    mkdir -p build && cd build
    cmake -G Ninja ../llvm \
@@ -128,51 +136,67 @@ RaBitQ是一种面向高维向量近似最近邻搜索（ANN）的随机二值�
      -DLLVM_ENABLE_TERMINFO=ON \
      -DLLVM_ENABLE_ZLIB=ON
    ```
+
    编译（-j后接CPU核心数，如8核写-j8）。
    
-   ```ninja -j$(nproc)```
-3. 安装到指定目录。
+   ```bash
+   ninja -j$(nproc)
    ```
+
+3. 安装到指定目录。
+
+   ```text
    ninja install 
    ```  
+
 4. 配置 LLVM 环境变量（临时生效）。
-   ```
+
+   ```bash
    export CXX=/opt/llvm-16.0.6/bin/clang++
    export CC=/opt/llvm-16.0.6/bin/clang
    export PATH=/opt/llvm-16.0.6/bin:$PATH
    ```
+
 5. 验证是否安装成功。
-   ```
+
+   ```bash
    clang --version
    ```
+
    成功应输出如下显示：
   
-   ```clang version 16.0.6```
+   ```text
+   clang version 16.0.6
+   ```
 
 ### 安装jemalloc
 
 1. 下载jemalloc 5.3.0并解压。
-   ```
+
+   ```bash
    wget --no-check-certificate https://github.com/jemalloc/jemalloc/releases/download/5.3.0/jemalloc-5.3.0.tar.bz2
    tar -jxvf jemalloc-5.3.0.tar.bz2
    cd jemalloc-5.3.0
    ```
 
-3. 编译安装。
-   ```
+2. 编译安装。
+
+   ```bash
    ./configure --prefix=/usr/local
    make -j$(nproc)
    make install
    ```
 
-4. 验证是否安装成功。
-   ```
+3. 验证是否安装成功。
+
+   ```bash
    jemalloc-config --version
    ```
    成功应输出版本号：5.3.0。
 
-5. 配置jemalloc库路径（Debian通用）。
-   ```
+4. 配置jemalloc库路径（Debian通用）。
+
+   ```bash
    echo "/usr/local/lib" >> /etc/ld.so.conf
    ldconfig
    ```
@@ -180,18 +204,21 @@ RaBitQ是一种面向高维向量近似最近邻搜索（ANN）的随机二值�
 ### 安装Eigen 3.4.0
 
 1. 下载Eigen源码并解压。
-   ```
+
+   ```bash
    wget --no-check-certificate https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
    tar -zxvf eigen-3.4.0.tar.gz
    ```
 
 2. 移动核心头文件到src根目录（匹配代码的 #include <Eigen/Dense>）。
-   ```
+
+   ```bash
    mv eigen-3.4.0/Eigen/ ./
    ```
 
 3. 验证文件是否存在。
-   ```
+
+   ```bash
    ls ./Eigen/Dense
    ```
    成功应输出：./Eigen/Dense
