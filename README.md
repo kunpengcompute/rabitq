@@ -14,9 +14,15 @@ RaBitQ是由NTU团队提出的面向高维向量近似最近邻搜索（ANN）�
 
 ```text
 rabitq/
-├─ docs        // 资料
-├─ 0001-rabitq-optimize-neq.patch         // 非等价索引优化补丁（全量优化）
-├─ 0002-rabitq-optimize-eqv.patch         // 等价索引优化补丁
+├─ docs                                   # 文档目录
+│   └── zh                                # 中文文档目录
+│       ├── quick_start.md                # 快速入门
+│       ├── release_notes.md              # 版本发布说明
+│       ├── feature_introduction.md       # 特性介绍
+│       ├── user_guide.md                 # 用户指南
+│       └── api_reference.md              # API参考
+├─ 0001-rabitq-optimize-neq.patch         # 非等价索引优化补丁（全量优化）
+├─ 0002-rabitq-optimize-eqv.patch         # 等价索引优化补丁
 ```
 
 ## 版本说明
