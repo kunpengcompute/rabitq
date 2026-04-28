@@ -23,6 +23,7 @@ rabitq/
 │       └── api_reference.md              # API参考
 ├─ 0001-rabitq-optimize-neq.patch         # 非等价索引优化补丁（全量优化）
 ├─ 0002-rabitq-optimize-eqv.patch         # 等价索引优化补丁
+└─ README.md                              # 项目介绍文件
 ```
 
 ## 版本说明
