@@ -2,7 +2,7 @@
 
 ## 最新消息
 
-- 2026.03.30：RaBitQ优化补丁发布于Gitcode平台，实现等价索引优化和非等价索引优化。
+- [2026.03.30]：RaBitQ优化补丁发布于Gitcode平台，实现等价索引优化和非等价索引优化。
 
 ## 项目介绍
 
@@ -19,57 +19,19 @@ rabitq/
 ├─ 0002-rabitq-optimize-eqv.patch         // 等价索引优化补丁
 ```
 
-使用补丁后RaBitQ完整的目录结构如下所示：
-
-```text
-RaBitQ/
-├─ src/                                    // C++源代码
-│   ├─ ivf_rabitq.h                       // IVF-RaBitQ主类（含ARM64 SOAR数据结构）
-│   ├─ ivf_rabitq_search.h                // ARM64优化的搜索实现（含SOAR/掩码扫描）
-│   ├─ index_io.h                         // ARM64索引I/O（含FP16转换）
-│   ├─ space.h                            // 位操作与距离计算（ARM NEON实现）
-│   ├─ fast_scan.h                        // SIMD快速扫描（自适应批量64/96）
-│   ├─ krl_table_lookup_fast_scan.s       // ARM64汇编LUT查找优化
-│   ├─ matrix.h                           // 矩阵数据结构
-│   ├─ utils.h                            // 工具函数（HDF5加载、时间测量等）
-│   ├─ test_result.h                      // 测试结果统计
-│   ├─ test_result.cpp                    // 测试结果实现
-│   ├─ index.cpp                          // 索引构建主程序
-│   ├─ search.cpp                         // 搜索主程序（多线程、NUMA绑核）
-│   └─ search_model.cpp                   // ML训练数据生成程序（仅非等价）
-├─ data/                                   // Python数据处理
-│   ├─ ivf.py                             // IVF聚类 + SOAR溢出分配
-│   ├─ rabitq.py                          // RaBitQ量化索引构建
-│   ├─ eval.py                            // LightGBM模型训练与导出（仅非等价）
-│   ├─ test.py                            // 向量归一化测试（仅非等价）
-│   └─ utils/
-│       └─ io.py                          // 数据I/O工具（fvecs/ivecs/HDF5）
-├─ script/                                 // 脚本
-│   ├─ index.sh                           // 索引构建脚本
-│   └─ search.sh                          // 搜索脚本
-├─ bin/                                    // 编译输出目录
-├─ results/                                // 搜索结果输出目录
-├─ datasets/                               // HDF5数据集目录
-├─ run.sh                                  // 一键运行脚本（统一入口）
-├─ LICENSE
-└─ README.md
-```
-
 ## 版本说明
 
 关于RaBitQ的版本更新情况请参见《[版本说明书](docs/zh/release_notes.md)》。
 
 ## 学习文档
 
-
-| 学习资源类别 | 学习资源名称                        | 学习资源简介                                                    |
-| ------ | ----------------------------- | --------------------------------------------------------- |
-| 文档     | [版本说明书](docs/zh/release_notes.md)         | 介绍等价索引优化和非等价索引优化补丁的版本信息。                           |
-| 文档     | [快速入门](docs/zh/quick_start.md)         | 提供概述、前置条件、补丁应用方法和基本使用指导。                           |
-| 文档     | [特性指南](docs/zh/feature_introduction.md)     | 详细说明等价索引优化和非等价索引优化的技术内容，包括SOAR算法、ML自适应nprobe机制及技术架构。      |
-| 文档     | [API参考](docs/zh/api_reference.md)     | 对比原始RaBitQ开源代码，详细列出Python脚本、C++命令行、IVFRN类和Shell脚本的全部接口变动。 |
-| 文档     | [用户指南](docs/zh/user_guide.md) | 提供run.sh测试脚本的详细使用方法，包括参数说明、数据集配置、搜索参数、环境配置和使用示例。          |
-
+| 学习资源名称 | 学习资源简介 |
+| ---- | ------- |
+| [版本说明书](docs/zh/release_notes.md) | 介绍等价索引优化和非等价索引优化补丁的版本信息。 |
+| [特性指南](docs/zh/feature_introduction.md) | 详细说明等价索引优化和非等价索引优化的技术内容，包括SOAR算法、ML自适应nprobe机制及技术架构。 |
+| [快速入门](docs/zh/quick_start.md) | 提供概述、前置条件、补丁应用方法和基本使用指导。 |
+| [API参考](docs/zh/api_reference.md) | 对比原始RaBitQ开源代码，详细列出Python脚本、C++命令行、IVFRN类和Shell脚本的全部接口变动。 |
+| [用户指南](docs/zh/user_guide.md) | 提供run.sh测试脚本的详细使用方法，包括参数说明、数据集配置、搜索参数、环境配置和使用示例。 |
 
 ## 免责声明
 
@@ -77,9 +39,9 @@ RaBitQ/
 
 ## License
 
-本项目采用Apache License 2.0许可证授权，详见[LICENSE](LICENSE)文件
+- 本项目采用Apache License 2.0许可证授权，详见[LICENSE](LICENSE)文件。
 
-本项目的文档适用CC-BY 4.0许可证，具体请参见文件[LICENSE](docs/zh/LICENSE)文件
+- 本项目的文档适用CC-BY 4.0许可证，具体请参见文件[LICENSE](docs/zh/LICENSE)文件。
 
 ## 贡献声明
 
