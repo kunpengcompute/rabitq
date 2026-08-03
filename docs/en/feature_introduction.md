@@ -2,7 +2,7 @@
 
 ## Technical Structure
 
-```
+``` text
 Original RaBitQ (x86_64 AVX2)
 │
 ├── 0002-rabitq-optimize-eqv.patch ──→ Equivalence optimization version (preserving algorithmic semantics)
