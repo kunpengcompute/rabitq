@@ -15,7 +15,7 @@ The repository directory structure is as follows:
 ```text
 rabitq/
 ├─ docs                                   # docs
-│   └── eh                                # en
+│   └── en                               # en
 │       ├── quick_start.md                # quick_start.md 
 │       ├── release_notes.md              # release_notes.md
 │       ├── feature_introduction.md       # feature_introduction.md 
