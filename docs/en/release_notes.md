@@ -45,3 +45,7 @@ This is the first official release, and there are no historical defect fixes.
 |------|------|
 | 1 | Two patches (equivalence/non-equivalence) are mutually exclusive; you must choose one.|
 | 2 | AArch64 NEON optimization is exclusive to the AArch64 architecture; while the code can still be compiled and run on x86_64, ARM-specific optimizations will be disabled.|
+
+### Obtaining Documentation
+
+Visit the [open-source repository](https://gitcode.com/boostkit/rabitq) to view or download related documents.

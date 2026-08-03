@@ -2,7 +2,7 @@
 
 ## Latest Updates
 
-- 2026.03.30: The RaBitQ optimization patches were released on the Gitcode platform, implementing both equivalence and non-equivalence index optimizations.
+- [2026.03.30]: The RaBitQ optimization patches were released on the Gitcode platform, implementing both equivalence and non-equivalence index optimizations.
 
 ## Project Introduction
 
@@ -14,9 +14,16 @@ The repository directory structure is as follows:
 
 ```text
 rabitq/
-├─ docs                                   // Documentation
-├─ 0001-rabitq-optimize-neq.patch         // Non-equivalence index optimization patch (full optimization)
-└─ 0002-rabitq-optimize-eqv.patch         // Equivalence index optimization patch
+├─ docs                                   # docs
+│   └── en                               # en
+│       ├── quick_start.md                # quick_start.md 
+│       ├── release_notes.md              # release_notes.md
+│       ├── feature_introduction.md       # feature_introduction.md 
+│       ├── user_guide.md                 # user_guide.md 
+│       └── api_reference.md              # api_reference.md
+├─ 0001-rabitq-optimize-neq.patch         # 0001-rabitq-optimize-neq.patch
+├─ 0002-rabitq-optimize-eqv.patch         # 0002-rabitq-optimize-eqv.patch
+└─ README_en.md                           # README_en.md
 ```
 
 ## Release Notes
@@ -25,13 +32,13 @@ For details about the version updates of RaBitQ, see [Release Notes](docs/en/rel
 
 ## Documents
 
-| Resource Type| Resource Name | Resource Description |
-| ------ | ------------- | ------------ |
-| Document    | [Release Notes](docs/en/release_notes.md)        | Provides version information for both equivalence and non-equivalence index optimization patches.                          |
-| Document    | [Quick Start](docs/en/quick_start.md)        | Provides the overview, prerequisites, patch application methods, and basic usage guide.                          |
-| Document    | [Feature Introduction](docs/en/feature_introduction.md)    | Details the technical components of equivalence and non-equivalence index optimizations, including the SOAR algorithm, the ML-based adaptive nprobe mechanism, and the overall technical architecture.     |
-| Document    | [API Reference](docs/en/api_reference.md)    | Details all API modifications across Python scripts, C++ command lines, the IVFRN class, and Shell scripts, relative to the original open-source RaBitQ code.|
-| Document    | [User Guide](docs/en/user_guide.md)| Provides detailed instructions for the `run.sh` test script, including parameter descriptions, dataset configurations, search parameters, environment setups, and usage examples.         |
+| Resource Name | Resource Description |
+|------------- | ------------ |
+| [Release Notes](docs/en/release_notes.md)        | Provides version information for both equivalence and non-equivalence index optimization patches.                          |
+| [Quick Start](docs/en/quick_start.md)        | Provides the overview, prerequisites, patch application methods, and basic usage guide.                          |
+| [Feature Introduction](docs/en/feature_introduction.md)    | Details the technical components of equivalence and non-equivalence index optimizations, including the SOAR algorithm, the ML-based adaptive nprobe mechanism, and the overall technical architecture.     |
+| [API Reference](docs/en/api_reference.md)    | Details all API modifications across Python scripts, C++ command lines, the IVFRN class, and Shell scripts, relative to the original open-source RaBitQ code.|
+| [User Guide](docs/en/user_guide.md)| Provides detailed instructions for the `run.sh` test script, including parameter descriptions, dataset configurations, search parameters, environment setups, and usage examples.         |
 
 ## Disclaimer
 
