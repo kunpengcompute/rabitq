@@ -1,8 +1,10 @@
 # RaBitQ介绍
 
+RaBitQ是面向高维向量近似最近邻搜索（ANN）的随机二值量化方法，本文档介绍其鲲鹏优化方案、目录结构、版本信息及学习资源，适用于需要进行向量搜索优化的开发者与研究人员。
+
 ## 最新消息
 
-- [2026.03.30]：RaBitQ优化补丁发布于Gitcode平台，实现等价索引优化和非等价索引优化。
+- [2026-03-30]：RaBitQ提供优化补丁，实现等价索引优化和非等价索引优化。
 
 ## 项目介绍
 
@@ -34,15 +36,15 @@ rabitq/
 
 | 学习资源名称 | 学习资源简介 |
 | ---- | ------- |
-| [版本说明书](docs/zh/release_notes.md) | 介绍等价索引优化和非等价索引优化补丁的版本信息。 |
-| [特性指南](docs/zh/feature_introduction.md) | 详细说明等价索引优化和非等价索引优化的技术内容，包括SOAR算法、ML自适应nprobe机制及技术架构。 |
-| [快速入门](docs/zh/quick_start.md) | 提供概述、前置条件、补丁应用方法和基本使用指导。 |
-| [API参考](docs/zh/api_reference.md) | 对比原始RaBitQ开源代码，详细列出Python脚本、C++命令行、IVFRN类和Shell脚本的全部接口变动。 |
-| [用户指南](docs/zh/user_guide.md) | 提供run.sh测试脚本的详细使用方法，包括参数说明、数据集配置、搜索参数、环境配置和使用示例。 |
+| 《[版本说明书](docs/zh/release_notes.md)》 | 介绍等价索引优化和非等价索引优化补丁的版本信息。 |
+| 《[特性指南](docs/zh/feature_introduction.md)》 | 详细说明等价索引优化和非等价索引优化的技术内容，包括SOAR算法、ML自适应nprobe机制及技术架构。 |
+| 《[快速入门](docs/zh/quick_start.md)》 | 提供概述、前置条件、补丁应用方法和基本使用指导。 |
+| 《[API参考](docs/zh/api_reference.md)》 | 对比原始RaBitQ开源代码，详细列出Python脚本、C++命令行、IVFRN类和Shell脚本的全部接口变动。 |
+| 《[用户指南](docs/zh/user_guide.md)》 | 提供run.sh测试脚本的详细使用方法，包括参数说明、数据集配置、搜索参数、环境配置和使用示例。 |
 
 ## 免责声明
 
-此代码仓计划参与RaBitQ开源组件，编码风格遵照原生开源软件，继承原生开源软件安全设计，不破坏原生开源软件设计及编码风格和方式，软件的任何漏洞与安全问题，均由相应的上游社区根据其漏洞和安全响应机制解决。请密切关注上游社区发布的通知和版本更新。鲲鹏计算社区对软件的漏洞及安全问题不承担任何责任。
+此代码仓计划参与RaBitQ开源组件，编码风格遵照开源软件，继承开源软件安全设计，不破坏开源软件设计及编码风格和方式，软件的任何漏洞与安全问题，均由相应的上游社区根据其漏洞和安全响应机制解决。请密切关注上游社区发布的通知和版本更新。鲲鹏计算社区对软件的漏洞及安全问题不承担任何责任。
 
 ## License
 
@@ -52,12 +54,8 @@ rabitq/
 
 ## 贡献声明
 
-欢迎大家为社区做贡献，如果使用过程中有任何问题/建议，或者需要反馈特性需求和bug报告，可以提交[Issues](https://gitcode.com/boostkit/community/blob/master/docs/contributor/issue-submit.md)联系我们，具体贡献方法可参考[这里](https://gitcode.com/boostkit/community/blob/master/docs/contributor/contributing.md)。同时也欢迎大家在[讨论专区](https://gitcode.com/boostkit/community/discussions)展开讨论交流。感谢您的支持。
+欢迎大家为社区做贡献，如果使用过程中有任何问题/建议，或者需要反馈特性需求和bug报告，可以提交[Issues](https://gitcode.com/boostkit/community/blob/master/docs/contributor/issue-submit.md)联系我们，具体贡献方法可参考[贡献指南](https://gitcode.com/boostkit/community/blob/master/docs/contributor/contributing.md)。同时也欢迎大家在[讨论专区](https://gitcode.com/boostkit/community/discussions)展开讨论交流。感谢您的支持。
 
 ## 致谢
-
-RaBitQ由华为公司的下列部门联合贡献：
-
-- 鲲鹏计算Boostkit开发部
 
 感谢来自社区的每一个PR，欢迎贡献RaBitQ！

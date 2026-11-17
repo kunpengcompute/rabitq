@@ -1,5 +1,7 @@
 # 特性指南
 
+本文档介绍特性指南，针对ARM64架构的RaBitQ索引优化方案，包含等价优化与非等价优化两部分，适用于需要优化向量搜索索引的用户。
+
 ## 技术架构
 
 ```text
@@ -40,18 +42,18 @@
 
 | 文件 | 变更类型 | 说明 |
 | ------ | --------- | ------ |
-| `src/ivf_rabitq.h` | 修改 | 添加ARM64数据结构与搜索流程 |
-| `src/ivf_rabitq_search.h` | 新增 | ARM64优化的搜索实现 |
-| `src/index_io.h` | 新增 | ARM64索引I/O（含FP16转换） |
-| `src/space.h` | 修改 | NEON SIMD实现（位操作、距离计算） |
-| `src/fast_scan.h` | 修改 | 自适应批量打包与NEON快速扫描 |
-| `src/matrix.h` | 修改 | 矩阵操作适配 |
-| `src/index.cpp` | 修改 | 索引构建流程适配 |
-| `src/search.cpp` | 修改 | 搜索流程适配 |
-| `src/test_result.cpp` | 修改 | 测试结果处理 |
-| `data/ivf.py` | 修改 | IVF聚类流程优化，新增SOAR分配与点积度量支持 |
-| `data/rabitq.py` | 修改 | 量化索引构建适配 |
-| `run.sh` | 新增 | 一键运行脚本 |
+| src/ivf_rabitq.h | 修改 | 添加ARM64数据结构与搜索流程 |
+| src/ivf_rabitq_search.h | 新增 | ARM64优化的搜索实现 |
+| src/index_io.h | 新增 | ARM64索引I/O（含FP16转换） |
+| src/space.h | 修改 | NEON SIMD实现（位操作、距离计算） |
+| src/fast_scan.h | 修改 | 自适应批量打包与NEON快速扫描 |
+| src/matrix.h | 修改 | 矩阵操作适配 |
+| src/index.cpp | 修改 | 索引构建流程适配 |
+| src/search.cpp | 修改 | 搜索流程适配 |
+| src/test_result.cpp | 修改 | 测试结果处理 |
+| data/ivf.py | 修改 | IVF聚类流程优化，新增SOAR分配与点积度量支持 |
+| data/rabitq.py | 修改 | 量化索引构建适配 |
+| run.sh | 新增 | 一键运行脚本 |
 
 ## 非等价索引优化（0001-rabitq-optimize-neq.patch）
 
@@ -71,26 +73,26 @@
 
 | 文件 | 变更类型 | 说明 |
 | ------ | --------- | ------ |
-| `src/ivf_rabitq.h` | 修改 | 添加SOAR数据结构与搜索入口 |
-| `src/ivf_rabitq_search.h` | 新增 | SOAR搜索实现（含去重与双簇扫描） |
-| `src/index_io.h` | 新增 | SOAR索引的持久化（含溢出数据） |
-| `src/space.h` | 修改 | NEON SIMD实现 |
-| `src/fast_scan.h` | 修改 | 批量扫描优化 |
-| `src/index.cpp` | 修改 | 索引构建（含溢出数据） |
-| `src/krl_table_lookup_fast_scan.s` | 新增 | ARM64汇编优化 |
-| `data/ivf.py` | 修改 | IVF聚类 + SOAR溢出分配 |
-| `data/rabitq.py` | 修改 | 量化索引构建（含溢出数据） |
-| `data/eval.py` | 新增 | 特征提取与LightGBM评估 |
-| `data/test.py` | 新增 | 测试脚本 |
-| `run.sh` | 新增 | 一键运行脚本 |
-| `script/index.sh` | 修改 | 索引构建脚本（含SOAR参数） |
-| `script/search.sh` | 修改 | 搜索脚本（含SOAR参数） |
+| src/ivf_rabitq.h | 修改 | 添加SOAR数据结构与搜索入口 |
+| src/ivf_rabitq_search.h | 新增 | SOAR搜索实现（含去重与双簇扫描） |
+| src/index_io.h | 新增 | SOAR索引的持久化（含溢出数据） |
+| src/space.h | 修改 | NEON SIMD实现 |
+| src/fast_scan.h | 修改 | 批量扫描优化 |
+| src/index.cpp | 修改 | 索引构建（含溢出数据） |
+| src/krl_table_lookup_fast_scan.s | 新增 | ARM64汇编优化 |
+| data/ivf.py | 修改 | IVF聚类 + SOAR溢出分配 |
+| data/rabitq.py | 修改 | 量化索引构建（含溢出数据） |
+| data/eval.py | 新增 | 特征提取与LightGBM评估 |
+| data/test.py | 新增 | 测试脚本 |
+| run.sh | 新增 | 一键运行脚本 |
+| script/index.sh | 修改 | 索引构建脚本（含SOAR参数） |
+| script/search.sh | 修改 | 搜索脚本（含SOAR参数） |
 
 ### ML自适应nprobe详解
 
 非等价优化中除SOAR溢出向量分配外，还引入了基于机器学习的**查询自适应nprobe预测**机制。该机制**不改变索引结构**，仅在搜索阶段根据查询向量特征动态调整探查簇数（nprobe），为“简单”查询减少计算量，从而提升整体吞吐。
 
-### 离线训练阶段（`data/eval.py`）
+### 离线训练阶段（data/eval.py）
 
 1. **数据准备**：加载基向量数据和预计算的每查询最优nprobe（`expectedNprobe1.bin`）。
 2. **特征提取**：对每个向量提取四维特征——均值（mean）、标准差（std）、稀疏度（sparsity）、范数（norm）。
@@ -98,7 +100,7 @@
 4. **模型训练**：使用LightGBM（GBDT, binary objective, AUC metric）训练分类模型，通过Youden's Index选取最优分类阈值。
 5. **模型导出**：通过treelite + tl2cgen将训练好的LightGBM模型编译为C共享库`libadaptivemodel_less.so`，供C++搜索程序直接调用。
 
-### 在线搜索阶段（`src/ivf_rabitq_search.h`）
+### 在线搜索阶段（src/ivf_rabitq_search.h）
 
 搜索时，当`threshold > 0`且`pred_nprobe > 0`时启用自适应nprobe。
 
@@ -111,3 +113,9 @@
 ### 对索引结构的影响
 
 ML自适应nprobe机制**完全不改变索引结构**。索引的构建、存储和加载流程与不使用ML时完全一致。ML模型仅作为搜索阶段的旁路预测器，通过减少“简单”查询的nprobe来提升QPS，在基本不损失召回率的前提下降低平均搜索开销。该机制可通过设置`threshold=0`完全禁用。
+
+## 修订记录
+
+|文档版本|发布日期|修改说明|
+|--|--|--|
+|01|2026-03-30|第一次正式发布。|

@@ -1,5 +1,7 @@
 # 快速入门
 
+本文档提供RaBitQ快速入门示例，适用于完成安装后想快速使用RaBitQ优化的用户。
+
 ## 简介
 
 RaBitQ是一种面向高维向量近似最近邻搜索（ANN）的随机二值量化方法，能将D维向量量化为D位二进制字符串，并提供理论误差界。原始实现基于x86\_64 AVX2指令集，本补丁将其扩展至ARM64（AArch64）架构，并引入多项性能优化。
@@ -10,8 +12,8 @@ RaBitQ是一种面向高维向量近似最近邻搜索（ANN）的随机二值�
 
 | 补丁文件 | 类型 | 说明 |
 | --------- | ------ | ------ |
-| `0001-rabitq-optimize-neq.patch` | 非等价索引优化 | 引入SOAR算法，允许向量被分配到多个聚类簇，提升召回率 |
-| `0002-rabitq-optimize-eqv.patch` | 等价索引优化 | 在保持算法等价性的前提下，针对ARM64平台深度优化搜索性能 |
+| 0001-rabitq-optimize-neq.patch | 非等价索引优化 | 引入SOAR算法，允许向量被分配到多个聚类簇，提升召回率 |
+| 0002-rabitq-optimize-eqv.patch | 等价索引优化 | 在保持算法等价性的前提下，针对ARM64平台深度优化搜索性能 |
 
 ## 前提条件
 
@@ -260,3 +262,9 @@ RaBitQ是一种面向高维向量近似最近邻搜索（ANN）的随机二值�
    ./bin/search_<dataset> -d <dataset> -s <source> -r <result_path> -k <topk> -n <nprobe> \
     -p <hdf5_path> -m <metric_type> -t <threshold> -e <pred_nprobe> -a <soar_lambda>
    ```
+
+## 修订记录
+
+|文档版本|发布日期|修改说明|
+|--|--|--|
+|01|2026-03-30|第一次正式发布。|
