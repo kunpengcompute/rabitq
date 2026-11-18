@@ -1,5 +1,7 @@
 # 用户指南
 
+本文档提供`run.sh`优化后的统一测试脚本使用方法。
+
 ## 概述
 
 `run.sh`是优化后的统一测试脚本，整合了数据生成、索引构建、模型训练和搜索测试的完整流程。脚本自动检测系统架构（x86\_64 / aarch64），选择对应的编译参数和运行策略。
@@ -18,9 +20,9 @@
 
 | 参数 | 说明 | 可选值 | 默认值 |
 | ------ | ------ | -------- | -------- |
-| `dataset` | 数据集名称（必填） | `sift`，`deep`，`glove`，`fashion`，`gist` | - |
-| `mode` | 扫描模式 | `fastscan`，`scan` | `fastscan` |
-| `stage` | 执行阶段 | 请参见[执行阶段](#执行阶段)。 | `all` |
+| dataset | 数据集名称（必填） | sift，deep，glove，fashion，gist | - |
+| mode | 扫描模式 | fastscan，scan | fastscan |
+| stage | 执行阶段 | 请参见[执行阶段](#执行阶段)。 | all |
 
 ### 执行阶段
 
@@ -32,10 +34,10 @@
 
 | 阶段 | 说明 |
 | ------ | ------ |
-| `generate` | 运行`ivf.py`和`rabitq.py`文件，执行IVF聚类和RaBitQ量化，生成索引所需的中间数据。 |
-| `index` | 编译并运行C++ `index`程序，从中间数据构建二进制索引文件。 |
-| `search` | 编译并运行C++ `search`程序，执行搜索测试并输出QPS和召回率。 |
-| `all` | 按顺序执行`generate`，`index`，`search`阶段。 |
+| generate | 运行ivf.py和rabitq.py文件，执行IVF聚类和RaBitQ量化，生成索引所需的中间数据。 |
+| index | 编译并运行C++ index程序，从中间数据构建二进制索引文件。 |
+| search | 编译并运行C++ search程序，执行搜索测试并输出QPS和召回率。 |
+| all | 按顺序执行generate，index，search阶段。 |
 
 **非等价优化额外支持的阶段**
 
@@ -45,9 +47,9 @@
 
 | 阶段 | 说明 |
 | ------ | ------ |
-| `train` | 编译并运行`search_model`程序，对每个基向量搜索最优nprobe，生成`approximateGT.bin`和`expectedNprobe1.bin`（仅ARM64）。 |
-| `eval` | 运行`eval.py`文件，训练LightGBM分类模型并通过treelite导出为`libadaptivemodel_less.so`共享库（仅ARM64）。 |
-| `all` | 按顺序执行`generate`，`index`，`train`，`eval`，`search`阶段。 |
+| train | 编译并运行search_model程序，对每个基向量搜索最优nprobe，生成approximateGT.bin和expectedNprobe1.bin（仅ARM64）。 |
+| eval | 运行eval.py文件，训练LightGBM分类模型并通过treelite导出为libadaptivemodel_less.so共享库（仅ARM64）。 |
+| all | 按顺序执行generate，index，train，eval，search阶段。 |
 
 ## 数据集配置
 
@@ -57,11 +59,11 @@
 
 | 数据集 | HDF5 文件 | 度量类型 | D（维度） | B（量化位宽） |
 | -------- | ---------- | --------- | ----------- | -------------- |
-| `sift` | `sift-128-euclidean.hdf5` | squared\_l2 | 128 | 128 |
-| `deep` | `deep-image-96-angular.hdf5` | dot\_product | 96 | 128 |
-| `glove` | `glove-100-angular.hdf5` | dot\_product | 100 | 128 |
-| `fashion` | `fashion-mnist-784-euclidean.hdf5` | squared\_l2 | 784 | 832 |
-| `gist` | `gist-960-euclidean.hdf5` | squared\_l2 | 960 | 960 |
+| sift | sift-128-euclidean.hdf5 | squared\_l2 | 128 | 128 |
+| deep | deep-image-96-angular.hdf5 | dot\_product | 96 | 128 |
+| glove | glove-100-angular.hdf5 | dot\_product | 100 | 128 |
+| fashion | fashion-mnist-784-euclidean.hdf5 | squared\_l2 | 784 | 832 |
+| gist | gist-960-euclidean.hdf5 | squared\_l2 | 960 | 960 |
 
 ## 搜索参数
 
@@ -109,8 +111,8 @@
 
 | 架构 | 等价优化 | 非等价优化 |
 | ------ | --------- | ----------- |
-| x86\_64 | clang++，`-march=native` | index: g++；search: clang++，`-march=native` |
-| aarch64 | clang++，`-march=armv8-a+fp16fml` | index: g++，`-march=armv8.2-a+fp16fml+dotprod`；search: clang++，`-march=armv8-a+fp16fml` |
+| x86\_64 | clang++，-march=native | index: g++；search: clang++，-march=native |
+| aarch64 | clang++，-march=armv8-a+fp16fml | index: g++，-march=armv8.2-a+fp16fml+dotprod；search: clang++，-march=armv8-a+fp16fml |
 
 ARM64搜索编译额外链接汇编文件`krl_table_lookup_fast_scan.s`和jemalloc。
 
@@ -181,3 +183,9 @@ ARM64搜索编译额外链接汇编文件`krl_table_lookup_fast_scan.s`和jemall
   ```bash
   ./run.sh sift scan all
   ```
+
+## 修订记录
+
+|文档版本|发布日期|修改说明|
+|--|--|--|
+|01|2026-03-30|第一次正式发布。|
